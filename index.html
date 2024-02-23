@@ -1,0 +1,2159 @@
+<!DOCTYPE html>
+<!-- @license
+Copyright Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<meta charset="utf-8">
+<title>Monte carlo estimate demo</title>
+  <style type=text/css>
+    :root {
+      --chrome-background-color: #fafbfd;
+    }
+    html {
+      font-family: Google Sans, Roboto, Arial, sans-serif;
+    }
+    body {
+      margin: 0;
+      background-color: var(--chrome-background-color);
+      display: flex;
+      flex-direction: column;
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      overflow: hidden;
+    }
+    svg text, svg input {
+      cursor: default; user-select: none;
+      font-family: Roboto, Google Sans, Arial, sans-serif;
+      font-size: 14px;
+      dominant-baseline: central;
+    }
+    .dragging { opacity: 50% }
+    .editor { display: block; }
+    .editor.hidden { display: none }
+    .edit-help.hidden { display: none }
+    .edit-help { display: block; }
+    #grid { background-color: white; display: block; }
+    .grid-rect { fill: white; opacity: 0}
+    .selected .row-rect { fill: #dcecff }
+    .selected.active .row-rect { fill: #b8d9ff; }
+    .row-rect { fill: white; }
+    .task-dot { fill: white; stroke: black; stroke-width: 1px }
+    .dots rect { fill: white; }
+    .node-path { stroke: black; stroke-width: 1px; fill: none; }
+    #chrome { display: flex; padding: 6px; height: 48px; }
+    #chrome svg { padding: 8px; }
+    #share { align-self: flex-end; }
+    #menus { display: block; margin: 0; padding: 0; font-size: 16px; padding: 2px; user-select: none; cursor: default; }
+    #title {
+      background:none;
+      font-size: 18px; padding: 2px 8px 2px 8px; border: 1px solid var(--chrome-background-color); }
+    #title:hover { border: 1px solid #c0c0c0; border-radius: 5px; }
+    #title:focus { background: white; }
+    #menus { color: #202124; }
+    #menus li { font-size: 15px; display: inline; margin: 0; border-radius: 5px; padding: 2px 8px 2px 8px; }
+    #menus li:hover { background-color: #e5e5e5; }
+    #menus li:active { background-color: #d5d5d5; }
+    #column-headers-wrapper {
+      width: 100%;
+      min-height: 24px;
+      overflow: scroll;
+    }
+    #column-headers-wrapper::-webkit-scrollbar {
+      display: none;
+    }
+    #column-headers > div { display: inline-block; font-size: 15px; }
+    #column-headers {
+      border-bottom: 1px solid #e3e3e3;
+      border-top: 1px solid #e3e3e3;
+      background-color: white;
+      white-space: nowrap;
+      user-select: none;
+    }
+    #content {
+      flex-grow: 1;
+      overflow: scroll;
+      background-color: white;
+      border-top: 1px solid #c4c7c5;
+    }
+    #content::-webkit-scrollbar { -webkit-appearance: none; }
+    #content::-webkit-scrollbar:vertical { width: 11px; }
+    #content::-webkit-scrollbar:horizontal { height: 11px; }
+    #content::-webkit-scrollbar-thumb {
+      border-radius: 8px;
+      border: 2px solid white;
+      background-color: rgba(0, 0, 0, .5);
+      border-right: 1px solid #e3e3e3;
+    }
+    #tabs {
+      border-top: 1px solid #e3e3e3;
+      padding-left: 10px;
+      padding-bottom: 5px;
+    }
+    #tabs div {
+      display: inline-block;
+      padding: 5px 10px 5px 10px;
+      border: 1px solid #e3e3e3;
+      border-width: 0 1px 1px 1px;
+      user-select: none;
+      cursor: default;
+    }
+    .tab-active { background-color: white; }
+    .gridline {
+      stroke: #dddbdb; stroke-width: 1;
+    }
+    #logo .connector {
+      stroke-width: 2.5;
+      stroke: #666;
+    }
+    #logo .yellow { fill: #e0c410 }
+    #logo .blue { fill: #49a2ff }
+    #logo .left-side { fill: black; opacity: 40% }
+    #logo .right-side { fill: black; opacity: 20% }
+    #logo .pip { fill: black; opacity: 50% }
+    #inline-edit {
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+    }
+    #inline-edit:focus {
+      outline: none;
+      border: 1px solid black;
+      border-radius: 5px;
+    }
+    #est-edit-inner {
+      user-select: none;
+      cursor: default;
+      display: flex;
+      width: 100%;
+      border: 1px solid black;
+      border-radius: 5px;
+      background: white;
+      margin: 1px;
+      box-sizing: border-box;
+    }
+    .edit-help {
+      background-color: white;
+      border: 1px solid #c0c0c0;
+      box-shadow: 2px 2px 5px #666;
+      padding: 5px;
+    }
+    #est-edit-inner.error {
+      background-color: #ebcfc7;
+    }
+    #est-edit input {
+      flex: 1;
+      width:1em;
+      border: 0;
+      user-select: default;
+      background: none;
+      height: 100%;
+      outline: 0;
+    }
+    #est-edit button {
+      background: none;
+      border: 0;
+      padding: 1px;
+    }
+    #est-edit input:focus {
+      outline: 0px;
+    }
+    .date-edit {
+      display: flex;
+      width: 100%;
+      height: 100%;
+      background-color: white;
+    }
+    .date-edit div {
+      flex: 1;
+    }
+    .date-edit input {
+      outline: none;
+      width: 100%;
+      height: 100%;
+      border: 1px solid black;
+      box-sizing: border-box;
+      border-radius: 5px;
+    }
+    .date-edit button {
+      user-select: none;
+    }
+    #toolbar-wrapper {
+      background-color: #edf2fa;
+      border-radius: 10px;
+      margin: 3px;
+      padding: 3px;
+      user-select: none;
+      font-size: 16px;
+    }
+    #toolbar-wrapper input {
+      font-size: 16px;
+    }
+    #toolbar-wrapper div {
+      display: inline-block;
+      user-select: none;
+      cursor: default;
+    }
+    #toolbar-wrapper .tool {
+      border-radius: 5px;
+      margin: 2px;
+      padding-inline: 6px;
+      padding-block: 2px;
+    }
+    #toolbar-wrapper .tool.requires-selection {
+      color: rgba(68,71,70,.18);
+    }
+    .tasks-selected #toolbar-wrapper .tool.requires-selection {
+      color: inherit;
+    }
+    #toolbar-wrapper .tool:hover, .tasks-selected #toolbar-wrapper .tool.requires-selection:hover {
+      background-color: rgba(68,71,70,.08);
+    }
+    #toolbar-wrapper .tool.requires-selection:hover {
+      background-color: inherit;
+    }
+    #toolbar-wrapper .tool:active, .tasks-selected #toolbar-wrapper .tool.requires-selection:active {
+      background-color: rgba(68,71,70,.25);
+    }
+    #toolbar-wrapper .tool.requires-selection:active {
+      background-color: inherit;
+    }
+    #toolbar-wrapper .tool.requires-multiple-selection {
+      color: rgba(68,71,70,.18);
+    }
+    .multiple-tasks-selected #toolbar-wrapper .tool.requires-multiple-selection {
+      color: inherit;
+    }
+    #toolbar-wrapper .tool:hover, .multiple-tasks-selected #toolbar-wrapper .tool.requires-multiple-selection:hover {
+      background-color: rgba(68,71,70,.08);
+    }
+    #toolbar-wrapper .tool.requires-multiple-selection:hover {
+      background-color: inherit;
+    }
+    #toolbar-wrapper .tool:active, .multiple-tasks-selected #toolbar-wrapper .tool.requires-multiple-selection:active {
+      background-color: rgba(68,71,70,.25);
+    }
+    #toolbar-wrapper .tool.requires-multiple-selection:active {
+      background-color: inherit;
+    }
+    #toolbar-wrapper .tool.selected {
+      background-color: rgba(68,71,70,.15);
+    }
+    #toolbar-wrapper .tool.selected:hover {
+      background-color: rgba(68,71,70,.25);
+    }
+    #toolbar-wrapper .tool.selected:active {
+      background-color: rgba(68,71,70,.35);
+    }
+    #toolbar-wrapper .divider {
+      background: rgba(68,71,70,.5);
+      border-radius: 0px;
+      margin: 6px;
+      width: 1px;
+    }
+    #toolbar-wrapper .icon {
+      margin: 6px;
+      padding-block: 2px;
+    }
+    #toolbar-wrapper input {
+      outline: none;
+      border: none;
+      border-radius: 6px;
+      margin: 6px;
+      margin-left: 0px;
+      padding-inline: 6px;
+      padding-block: 2px;
+      width: 160px;
+    }
+  </style>
+  <link rel="stylesheet" type="text/css"
+    href="https://microsoft.github.io/vscode-codicons/dist/codicon.css">
+<body>
+  <div id=chrome>
+    <svg id=logo width=40 height=40 viewBox="0 0 36 36">
+      <g transform="translate(0, 0) scale(2 2)" class=die>
+        <path d="M 8  0 l 8 5 v 8 l -8  5 l -8 -5 v -8 Z" class=blue></path>
+        <path d="M 8 10 v 8       l  8 -5         v -8 Z" class=right-side></path>
+        <path d="M 8 10 v 8       l -8 -5         v -8 Z" class=left-side></path>
+        <ellipse cx=8 cy=3 rx=1.5 ry=.75 class=pip></ellipse>
+        <ellipse cx=5 cy=5 rx=1.5 ry=.75 class=pip></ellipse>
+        <ellipse cx=11 cy=5 rx=1.5 ry=.75 class=pip></ellipse>
+        <ellipse cx=8 cy=7 rx=1.5 ry=.75 class=pip></ellipse>
+        <ellipse cx=4 cy=11 rx=.75 ry=1.5 class=pip></ellipse>
+        <ellipse cx=14 cy=9 rx=.75 ry=1.5 class=pip></ellipse>
+        <ellipse cx=10 cy=13 rx=.75 ry=1.5 class=pip></ellipse>
+      </g>
+    </svg>
+    <div id=chrome-middle>
+      </svg>
+      <input type=text id=title title="Rename"
+             spellcheck=false autocomplete=off
+             value="Monte carlo estimate demo">
+      <ul id=menus>
+        <li>File
+        <li>Edit
+        <li>View
+      </ul>
+    </div>
+  </div>
+  <div id=toolbar-wrapper>
+    <div class=icon>
+      <svg width=18 height=18 viewBox="0 0 18 18">
+        <line x1=40% y1=40% x2=18 y2=18 stroke=black stroke-width=2></line>
+        <circle cx=45% cy=45% r=30% fill=white stroke=black
+                stroke-width=2></circle>
+      </svg>
+    </div>
+    <input type=search>
+  </div>
+  <div id=column-headers-wrapper>
+    <svg id=column-headers height=24 width=100 viewBox="0 0 24 100"></svg>
+  </div>
+  <div id=content><svg id=grid>
+    <defs>
+      <symbol id="blocked" refX="0" refY="0" width="24" height="24"
+              viewBox="0 0 24 24">
+      <rect x="5" y="5" width="14" height="14"
+            stroke="grey" stroke-width="1" fill="rgba(68,71,70,.15)"></rect>
+      </symbol>
+      <symbol id="finished" refX="0" refY="0" width="24" height="24"
+              viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14"
+              stroke="black" stroke-width="1" fill="white"></rect>
+        <line fill="none" stroke="black" x1="5" y1="5" x2="19" y2="19"></line>
+        <line fill="none" stroke="black" x2="5" y1="5" x1="19" y2="19"></line>
+      </symbol>
+      <symbol id="ready" refX="0" refY="0" width="24" height="24"
+              viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14"
+              stroke="black" stroke-width="1" fill="white"></rect>
+      </symbol>
+      <symbol id="started" refX="0" refY="0" width="24" height="24"
+              viewBox="0 0 24 24">
+        <rect x="5" y="5" width="14" height="14" stroke="black"
+              stroke-width="1" fill="white"></rect>
+        <line fill="none" stroke="black" x2="5" y1="5" x1="19" y2="19"></line>
+      </symbol>
+    </defs>
+    <g id=data-content></g>
+    <g id=grid-controls>
+      <foreignObject id=name-edit class="editor hidden">
+        <input type=text id=inline-edit></input>
+      </foreignObject>
+      <foreignObject id=name-edit-help class="edit-help hidden">
+        <div>Ret: Accept<br>Ctrl+ret: new task</div>
+      </foreignObject>
+      <foreignObject id=est-edit class="editor hidden">
+      <div><div id=est-edit-inner><input type=text id=est-edit-input></input><button
+        id=est-edit-clear class="codicon codicon-trash" title="Remove estimate"></div></div></div>
+      </foreignObject>
+      <foreignObject id=est-edit-help class="edit-help hidden">
+        <div style="width: 100%">Like '1-2d' or '1d - 2w'</div>
+      </foreignObject>
+      <foreignObject id=start-edit class="editor hidden">
+        <div class=date-edit><div><input type=date></input></div><button class="codicon codicon-trash"></button></div>
+      </foreignObject>
+      <foreignObject id=finish-edit class="editor hidden">
+        <div class=date-edit><div><input type=date></input></div><button class="codicon codicon-trash"></button></div>
+      </foreignObject>
+    </g>
+  </svg></div>
+  <div id=tabs>
+    <div class=tab-active>Tasks</div><div>Milestones</div><div>Holidays</div>
+  </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js" integrity="sha512-M7nHCiNUOwFt6Us3r8alutZLm9qMt4s9951uo8jqO4UwJ1hziseL6O3ndFyigx6+LREfZqnhHxYjKRJ8ZQ69DQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<!-- script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.js"
+  integrity="sha512-NmSTfudjn1FCaFMQ+f4xveBmwRJn5ep8Wu+YOeq+CeExhFtKvwhfKVXFX3tGxoGWxu8Fl83qm9nE8/Hkc1dWZg=="
+  crossorigin="anonymous" referrerpolicy="no-referrer"></script -->
+<script type=text/javascript>
+  const fmtDateAll = (a, p) => {
+    if (p) {
+      if (displayOptions.dateFormat == dateFormats.ABSOLUTE) {
+        return fmtDateP(a, p);
+      } else {
+        return fmtRelDateP;
+      }
+    }
+  }
+  const fmtDateP = (a, p) => {
+    const today = new Date();
+    if (a !== null) {
+      const o = {day: 'numeric', month:'short', year: undefined}
+      if (a.getFullYear() != today.getFullYear()) o.year = 'numeric'
+      return a.toLocaleDateString(undefined, o);
+    }
+    if (p.err) {
+      return p.err;
+    }
+    const [lb, ub] = p.map(p => new Date(p));
+    const ubo = {day: 'numeric', month:'short', year: undefined}
+    const lbo = {day: 'numeric', month:'short', year: undefined}
+    if (lb.getFullYear() != today.getFullYear()) lbo.year = 'numeric'
+    if (ub.getFullYear() != today.getFullYear()) ubo.year = 'numeric'
+    const lbs = lb.toLocaleDateString(undefined, lbo);
+    const ubs = ub.toLocaleDateString(undefined, ubo);
+    if (lb.getFullYear() == ub.getFullYear() &&
+        lb.getMonth() == ub.getMonth()) {
+      const ds = lb.toLocaleDateString(undefined, {day: 'numeric'});
+      const uds = ub.toLocaleDateString(undefined, {day: 'numeric'});
+      return lbs.replace(ds, `${ds} - ${uds}`);
+    }
+    return `${lbs} - ${ubs}`;
+  }
+  const relDateCmp = (today, target) => {
+    if (target.valueOf() < today.valueOf()) {
+      return {...relDateCmp(target, today), postfix:' ago'}
+    }
+    let diffYears = target.getFullYear() - today.getFullYear();
+    let diffMonths = target.getMonth() - today.getMonth();
+    let diffDays = target.getDate() - today.getDate();
+    if (diffDays < 0) {
+      diffDays += 31;
+      diffMonths--;
+    }
+    if (diffMonths < 0) {
+      diffYears--;
+      diffMonths += 12;
+    }
+    return {diffYears, diffMonths, diffDays, postfix: ''};
+  }
+  const relDateStrFmt = ({diffYears, diffMonths, diffDays, postfix}) => {
+    const components = [];
+    if (diffYears > 0) components.push(`${diffYears}y`);
+    if (diffMonths > 0) components.push(`${diffMonths}m`);
+    if (diffDays > 0) components.push(`${diffDays}d`);
+    if (components.length == 0) return "today";
+    return `${components.join(' ')}${postfix}`;
+  }
+  const relDateStr = (today, target) => {
+    return relDateStrFmt(relDateCmp(today, target));
+  }
+  const fmtRelRange = (today, lb, ub) => {
+    // Not leap year aware. Oh well.
+    const DAY = 1000 * 60 * 60 * 24;
+    const WEEK = DAY * 7;
+    const MONTH = 31 * DAY;
+    const YEAR = DAY * 365;
+
+    const lbd = Math.abs(today - lb);
+    const ubd = Math.abs(today - ub);
+    // The lower bound establishes the units we use for
+    // the diff.
+    if (lbd < WEEK) {
+      return `in ${Math.floor(lbd / DAY)}-${Math.floor(ubd / DAY)} days`
+    }
+    if (lbd < 5 * MONTH) {
+      return `in ${Math.floor(lbd / WEEK)}-${Math.floor(ubd / WEEK)} weeks`
+    }
+    if (lbd < YEAR) {
+      return `in ${(lbd / MONTH).toFixed(2)}-${(ubd / MONTH).toFixed(2)} months`;
+    }
+    return `in ${(lbd / YEAR).toFixed(2)}-${(ubd / YEAR).toFixed(2)} years`;
+  }
+  const fmtRelDateP = (a, p) => {
+    const today = new Date();
+    if (a !== null) {
+      return relDateStr(today, a);
+    }
+    if (p.err) {
+      return p.err;
+    }
+    const [lb, ub] = p;
+    return fmtRelRange(today.valueOf(), lb, ub);
+  }
+
+  const view = {
+    title: document.getElementById("title"),
+    content: document.getElementById("content"),
+    columnHeadersWrapper: document.getElementById("column-headers-wrapper"),
+    columnHeaders: document.getElementById("column-headers"),
+  };
+  view.content.addEventListener("scroll", () => {
+    view.columnHeadersWrapper.scrollLeft = view.content.scrollLeft;
+  });
+  const model = {
+    title: view.title.value
+  };
+  const setTitle = (title) => {
+    view.title.innerHTML = title;
+    if (title != model.title) {
+      model.title = title;
+      view.title.value = title;
+      document.title = `${title} - MC Scheduler`;
+      console.log("File renamed", model.title);
+    }
+  }
+  view.title.addEventListener("blur", () => {
+    setTitle(view.title.value);
+  });
+  view.title.addEventListener("keydown", e => {
+    if (e.key == 'Escape') {
+      view.title.value = model.title;
+      view.title.blur();
+      return;
+    }
+    if (e.key == 'Enter') {
+      setTitle(view.title.value);
+      view.title.blur();
+      return;
+    }
+  });
+  const filter = {
+    showFinished: true,
+    showBlocked: true,
+    launchesOnly: false,
+    searchQuery: ""
+  }
+  const estimateUnits = {
+    DAY: 'day',
+    WEEK: 'week',
+    MONTH: 'month'
+  }
+  const dateFormats = {
+    ABSOLUTE: 'abs',
+    RELATIVE: 'rel'
+  }
+  const displayOptions = {
+    estimateUnit: estimateUnits.DAY,
+    dateFormat: dateFormats.ABSOLUTE
+  }
+
+  const makeTools = () => {
+    const container = d3.select("#toolbar-wrapper");
+    const divider = () => container.append("div").classed("divider", true).html("&nbsp;");
+    const actionButton = (min, title, help, shortcut, action) => {
+      const cls = min == 1 ? 'requires-selection' : 'requires-multiple-selection';
+      const button = container.append("div").classed(`tool ${cls}`, true)
+          .text(title)
+          .attr("title", `${help}. Shortcut: ${shortcut}`)
+          .on("click", () => {
+            if (selectedTasks.active()) action();
+          });
+    }
+    const toolToggle = ({title, activeTitle, inactiveTitle, initialState,
+                         onChange}) => {
+      const button = container.append("div").classed("tool", true)
+        .text(title);
+      let state = initialState;
+      const getState = () => state;
+      const updateState = selected => {
+        button
+          .attr("title", selected ? activeTitle : inactiveTitle)
+          .classed("selected", selected);
+        state = selected;
+      }
+      updateState(state);
+      button.on("click", () => {
+        updateState(!state);
+        onChange(state);
+      });
+      return {getState, updateState};
+    }
+    const optGroup = (opts, initial, onChange) => {
+      const group = container.append("div");
+      let currentValue = initial;
+      const getValue = () => currentValue;
+      const update = () => {
+        o.classed("selected", v => v == currentValue);
+      }
+      const o = group.selectAll("div").data(opts).join("div").classed("tool", true).text(o => o)
+          .on("click", (e, v) => {
+            currentValue = v;
+            update();
+            onChange(currentValue);
+          });
+      update();
+    }
+    divider();
+    const showFinished = toolToggle({
+      title: 'fin', initialState: true,
+      activeTitle: 'Hide finished tasks',
+      inactiveTitle: 'Show finished tasks',
+      onChange: active => {filter.showFinished = active; refilter()}});
+    const showBlocked = toolToggle({
+      title: 'blk', initialState: true,
+      activeTitle: 'Hide blocked tasks',
+      inactiveTitle: 'Show blocked tasks',
+      onChange: active => {filter.showBlocked = active; refilter()}});
+    const onlyLaunches = toolToggle({
+      title: 'L', initialState: false,
+      activeTitle: 'Show all tasks',
+      inactiveTitle: 'Show only launches',
+      onChange: active => {filter.launchesOnly = active; refilter()}});
+    divider();
+    const dateFmt = optGroup(
+        ["abs", "rel"],
+        "abs",
+        fmt => {displayOptions.dateFormat = fmt; view.rows.displayDates()});
+    divider();
+    actionButton(1, 'IB', 'Insert new task below selected rows', 'Ctrl+Return', () => selectedTasks.createTask({}));
+    actionButton(1, 'BB', 'Branch new task below selected rows', 'Alt-Return', () => selectedTasks.createTask({branch: true}));
+    divider();
+    actionButton(1, 'IA', 'Insert new task above selected rows', 'Shift+Ctrl+Return', () => selectedTasks.createTask({before: true}));
+    actionButton(1, 'BA', 'Branch new task above selected rows', 'Shift-Alt-Return', () => selectedTasks.createTask({before: true, branch: true}));
+    divider();
+    actionButton(1, 'Del', 'Delete tasks', 'Backspace or Delete', () => selectedTasks.del({healEdges: false}));
+    actionButton(1, 'Fold', 'Remove tasks, patching the remaining hole', 'Ctrl-Backspace or Ctrl-Delete', () => selectedTasks.del({healEdges: true}));
+    divider();
+    actionButton(2, 'Add Deps', 'Add selected tasks as dependencies', "d", () => selectedTasks.addDeps());
+    actionButton(2, 'Del Deps', 'Remove dependency on selected tasks', "D", () => selectedTasks.removeDeps());
+    return {showFinished, showBlocked, onlyLaunches, dateFmt}
+  }
+  view.tools = makeTools();
+
+  class Estimate {
+    constructor(lb, lb_unit, ub, ub_unit) {
+      this.lb = lb;
+      this.ub = ub;
+      this.lb_unit = lb_unit;
+      this.ub_unit = ub_unit;
+      const DAYS = 1000 * 60 * 60 * 24;
+      const WEEKS = DAYS * 7;
+      const MONTHS = WEEKS * 31;  // close enough
+      const unit = {d: DAYS, w: WEEKS, m: MONTHS};
+      this.lb_ms = this.lb * unit[this.lb_unit];
+      this.ub_ms = this.ub * unit[this.ub_unit];
+    }
+    displayString() {
+      if (this.lb_unit == this.ub_unit) {
+        return `${this.lb}-${this.ub} ${this.lb_unit}`;
+      }
+      return `${this.lb}${this.lb_unit} - ${this.ub}${this.ub_unit}`;
+    }
+
+    static check(text) {
+      const m = text.match(/^ *([0-9]+(?:\.[0-9]+)?) *([dwm]?) *- *([0-9]+(?:\.[0-9]+)?) *([dwm]) *$/);
+      if (!m) { return false; }
+      const lb = parseFloat(m[1]);
+      const ub = parseFloat(m[3]);
+      const ub_unit = m[4];
+      const lb_unit = m[2] || ub_unit;
+      if (!isNaN(lb) && !isNaN(ub) &&
+          lb >= 0 && ub >= lb) {
+        return new Estimate(lb, lb_unit, ub, ub_unit);
+      } else {
+        return false;
+      }
+    }
+  }
+
+  class Task {
+    static count = 0;  // TODO: replace with Firebase IDs
+    constructor(name) {
+      this.id = Task.count++;
+      this.name = name;
+      this.estimate = null;
+      this.started = null;
+      this.finished = null;
+    }
+    displayEstimate() {
+      if (this.estimate !== null) {
+        return this.estimate.displayString();
+      } else {
+        return '???';
+      }
+    }
+    statusTitle() {
+      if (this.finished !== null) { return "Finished"; }  // finished
+      if (this.started !== null) { return "Started, click to finish"; }  // in progress
+      if (g.edges(this).every(p => p.finished !== null)) {
+        return "Unblocked, click to start";  // startable
+      }
+      return "Blocked, click to start anyway";  // blocked
+    }
+    statusIcon() {
+      if (this.finished !== null) { return "#finished"; }  // finished
+      if (this.started !== null) { return "#started"; }  // in progress
+      if (g.edges(this).every(p => p.finished !== null)) {
+        return "#ready";  // startable
+      }
+      return "#blocked";  // blocked
+    }
+    toggleStatus(date) {
+      if (this.finished !== null) {
+        this.started = null;
+        this.finished = null;
+      } else if (this.started !== null) {
+        this.finished = date;
+      } else {
+        this.started = date;
+      }
+    }
+  }
+
+  const byValue = (a, b) => a - b;  // comparator for sort.
+  const rand = (lb, ub) => Math.floor(Math.random() * (ub - lb) + lb);
+  const randFrom = a => a[rand(0, a.length)];
+  const lorem = "client server backend dependency release continuous-build authorization pipeline recovery factory integration CL tests audit protos design".split(' ');
+  const lorems = prob => {
+    const words = [];
+      do {
+        words.push(randFrom(lorem));
+      } while (Math.random() < prob);
+    return words;
+  }
+  randomTasks = (n) => {
+    const rand = (lb, ub) => Math.floor(Math.random() * (ub - lb) + lb);
+
+    const tasks = [];
+    for (let i = 0; i < n; i++) {
+      const name = [randFrom(['Add', 'Set up', 'Request', 'Wait for',
+          'Implement', 'Test', 'Get approval for', 'Send', 'Implement',
+          'Review', 'Design', 'Approve', 'Qualify'])].concat(lorems(.5));
+      const estimate = [rand(0, 12), rand(0, 12)];
+      estimate.sort(byValue);  // lexical sort is the default.
+      const task = new Task(name.join(' '));
+      task.estimate = new Estimate(estimate[0], 'd', estimate[1], 'd');
+      tasks.push(task);
+    }
+    return tasks;
+  }
+
+  /* Simulate some development tasks.
+
+     We approach it like a git repo:
+     1. there's a list of tips you can grow from
+     2. with some small probability you can start a new tip
+     3. otherwise pick one (or more, with small probability) as parent
+     4. with some small probability, keep the parent(s) as growable tips
+  */
+
+
+  const randomGraph = (tasks) => {
+    let now = new Date();
+    now.setDate(now.getDate() - tasks.length);
+    const E = tasks.length;
+    const edges = new Map();
+    const tips = [];
+    tasks.forEach(t => edges.set(t, []));
+    tasks.forEach((t, i) => {
+      now.setDate(now.getDate() + 1);
+      if (tips.length == 0 || Math.random() < .1) {
+        tips.push(t);
+        if (Math.random() < .75) {
+          t.started = new Date(now);
+          if (Math.random() < .75) {
+            t.finished = new Date(now);
+            t.finished.setDate(t.finished.getDate() + 1);
+          }
+        } else if (Math.random() < .1) {
+          t.estimate = null;
+        }
+        return;
+      }
+      let parents = [];
+      do {
+        const pi = rand(0, tips.length);
+        const parent = tips[pi];
+        if (!parent) debugger;
+        if (Math.random() < .9) {
+          tips.splice(pi, 1);
+        }
+        if (edges.get(t).indexOf(parent) >= 0) continue;
+        edges.get(t).push(parent);
+        parents.push(parent);
+      } while (Math.random() < .2 && tips.length > 0);
+      if (parents.every(p => p.finished != null) &&
+          Math.random() < .75) {
+        t.started = new Date(now);
+        if (Math.random() < .75) {
+          t.finished = new Date(now);
+          t.finished.setDate(t.finished.getDate() + 1);
+        }
+      }
+      if (Math.random() < .95) {
+        tips.push(t);
+      }
+    });
+
+    return {
+      V: new Map(tasks.map(t => [t.id, t])),
+      E: edges};
+  }
+
+  function invertEdges(V, E) {
+    const E_inv = new Map();
+    V.forEach(v => E_inv.set(v, []));
+    E.forEach((dependsOn, requiredBy) => dependsOn.forEach(preReq => E_inv.get(preReq).push(requiredBy)));
+    return E_inv;
+  }
+
+  function topoSort(V, E) {
+    const UNVISITED = 1;
+    const DISCOVERED = 2;
+    const FINISHED = 3;
+
+    const discovery = new Map();
+    V.forEach(v => discovery.set(v, UNVISITED));
+    const discoveryPath = new Map();
+    const topo = [];
+    function dfs(v, path, prefix) {
+      if (discovery.get(v) != UNVISITED) return;
+      discovery.set(v, DISCOVERED);
+      discoveryPath.set(v, path);
+      E.get(v).forEach((u, i) => {
+        if (discovery.get(u) == DISCOVERED) {
+          const msg = `Not a DAG: ${v.id}->${discoveryPath.get(u).map(v => v.id).join('->')}, ${path.map(v => v.id).join('->')}`
+          alert(msg);
+          console.log(msg);
+        }
+        if (discovery.get(u) == FINISHED) return;
+        dfs(u, [...path, u], prefix + ' ');
+      });
+      discovery.set(v, FINISHED);
+      topo.push(v);
+    }
+    V.forEach(v => dfs(v, [v], ''));
+    return topo;
+  }
+
+  function setPop(s) {
+    const val = s.values().next().value;
+    s.delete(val);
+    return val;
+  }
+
+  class Graph {
+    V; E; E_inv; topo; allEdges;
+    constructor(V, E, E_inv, topo) {
+      this.V = V; this.E = E; this.E_inv = E_inv; this.topo = topo;
+      this.allEdges = [];
+      this.E.forEach((vs, k) => vs.forEach(v => this.allEdges.push([k, v])));
+    }
+
+    dump(from, to) {
+      return [...this.V.values()]
+        .filter(v => v.id >= from && v.id <= to)
+        .map(v => `[${v.id}, [${this.edges(v).map(u => u.id)}]]`)
+        .join(',\n');
+    }
+
+    removeEdge(from, to) {
+      const edges = this.edges(from);
+      const i = edges.indexOf(to);
+      if (i >= 0) {
+        edges.splice(i, 1);
+      }
+      const invEdges = this.invEdges(to);
+      const j = invEdges.indexOf(from);
+      if (j >= 0) {
+        invEdges.splice(j, 1);
+      }
+      for (let i = 0; i < this.allEdges.length; i++) {
+        if (this.allEdges[i][0] == from &&
+            this.allEdges[i][1] == to) {
+          this.allEdges.splice(i, 1);
+          break;
+        }
+      }
+    }
+
+    addEdge(from, to) {
+      if (!this.V.has(to)) {
+        console.log('Trying to add an edge to', to.id, 'which is not in the graph');
+        debugger;
+      }
+      if (!this.V.has(from)) {
+        console.log('Trying to add an edge from', from.id, 'which is not in the graph');
+        debugger;
+      }
+      let [fidx, tidx] = [from, to].map(t => g.topo.indexOf(t));
+      if (fidx < tidx) {
+        console.log('Trying to add an edge from', from.id, '@', fidx,
+            'to', to.id, '@', tidx);
+        debugger;
+      }
+      let edges = [];
+      if (this.E.has(from)) {
+        edges = this.E.get(from);
+      } else {
+        edges = new Array();
+        this.E.set(from, edges);
+      }
+      let isNew = false;
+      if (edges.indexOf(to) < 0) {
+        edges.push(to);
+        isNew |= true;
+      }
+
+      let invEdges = [];
+      if (this.E_inv.has(to)) {
+        invEdges = this.E_inv.get(to);
+      } else {
+        invEdges = new Array();
+        this.E_inv.set(to, invEdges);
+      }
+      if (invEdges.indexOf(from) < 0) {
+        invEdges.push(from);
+        isNew |= true;
+      }
+
+      if (isNew) {
+        this.allEdges.push([from, to]);
+      }
+    }
+
+    insertBefore(t, b) {
+      if (!b) this.topo.splice(0, 0, t);
+      let idx = this.topo.indexOf(b);
+      this.topo.splice(idx, 0, t);
+      this.V.add(t);
+    }
+
+    insertAfter(t, a) {
+      if (!a) this.topo.splice(0, 0, t);
+      let idx = this.topo.indexOf(a) + 1;
+      this.topo.splice(idx, 0, t);
+      this.V.add(t);
+    }
+
+    next(t) {
+      if (!t) { return g.topo[0]; }
+      let idx = g.topo.indexOf(t);
+      idx = (idx + 1) % g.topo.length;
+      return this.topo[idx];
+    }
+
+    prev(t) {
+      if (!t) { return g.topo[g.topo.length - 1]; }
+      let idx = g.topo.indexOf(t) - 1;
+      if (idx < 0) {
+        idx = this.topo.length - 1;
+      }
+      return this.topo[idx];
+    }
+
+    edges(v) {
+      return this.E.get(v) || [];
+    }
+
+    invEdges(v) {
+      return this.E_inv.get(v) || [];
+    }
+
+    subGraph(vs) {
+      const E_new = new Map();
+      const E_inv_new = new Map();
+      // Only edges from an element of V to an element of V.
+      vs.forEach(v => {
+        E_new.set(v, this.edges(v).filter(u => vs.has(u)));
+        E_inv_new.set(v, this.invEdges(v).filter(u => vs.has(u)));
+      });
+      const topo = this.topo.filter(v => vs.has(v));
+      return new Graph(vs, E_new, E_inv_new, topo);
+    }
+
+    copy() {
+      const V = new Set(this.V);
+      const E_new = new Map();
+      this.E.forEach((vs, k) => E_new.set(k, [...vs]));
+      const E_inv_new = new Map();
+      this.E_inv.forEach((vs, k) => E_inv_new.set(k, [...vs]));
+      return new Graph(V, E_new, E_inv_new, [...this.topo]);
+    }
+
+    removeSubComponent(vs) {
+      const g = this.subGraph(vs);
+      vs.forEach(v => this.removeNode(v, false));
+      this.topo = this.topo.filter(v => this.V.has(v));
+      return g;
+    }
+
+    removeNode(v, healEdges) {
+      g.topo.splice(g.topo.indexOf(v), 1);
+      this.V.delete(v);
+      const requiredBy = this.invEdges(v);
+      const dependsOn = this.edges(v);
+      this.E.delete(v);
+      this.E_inv.delete(v);
+      // Remove incoming edges that depend on this node.
+      requiredBy.forEach(r => {
+        const incoming = this.edges(r);
+        if (!incoming) return;
+        const i = incoming.indexOf(v); if (i < 0) return;
+        incoming.splice(i, 1);
+        if (healEdges) {
+          dependsOn.forEach(d => g.addEdge(r, d));
+        }
+      });
+      // remove v from invEdges of nodes that this one depends on.
+      dependsOn.forEach(d => {
+        const outgoing = this.invEdges(d);
+        if (!outgoing) return;
+        const i = outgoing.indexOf(v); if (i < 0) return;
+        outgoing.splice(i, 1);
+      });
+      this.allEdges = this.allEdges.filter(
+          ([from, to]) => from != v && to != v);
+    }
+
+    getComponents() {
+      const components = [];
+      const unvisited = new Set(this.V);
+      while (unvisited.size) {
+        let component = new Set();
+        components.push(component);
+        let node = setPop(unvisited);
+        let stack = [node];
+        while (stack.length) {
+          let node = stack.pop();
+          unvisited.delete(node);
+          component.add(node);
+          this.edges(node).filter(n => unvisited.has(n)).forEach(node => { stack.push(node); });
+          this.invEdges(node).filter(n => unvisited.has(n)).forEach(node => { stack.push(node); });
+        }
+      }
+      return components.map(vs => this.removeSubComponent(vs));
+    }
+  }
+
+  function mainGraph(G) {
+    const V = new Set(G.V.values());
+    const E = new Map();
+    G.E.forEach((dependsOn, v) => E.set(v, [...dependsOn]));
+    const E_inv = invertEdges(V, E);
+    const topo = topoSort(V, E);
+    const order = new Map(topo.map((v, i) => [v, i]));
+    const byOrder = (a, b) => order.get(a) - order.get(b);
+    E.forEach(vs => vs.sort(byOrder));
+    E_inv.forEach(vs => vs.sort(byOrder));
+    return new Graph(V, E, E_inv, topo);
+  }
+
+  /* TODO:
+     - Priorities:
+      - adding links, reordering, milestones/launches, filtering, undo/redo
+       - ctrl-up, ctrl-down should reorder tasks (including fixing up dependencies)
+       - reordering tasks by drag/drop
+     - dragging on an unhighlighted row should highlight (a range of) rows.
+       - dragging on a highlighted row should move tasks.
+     - help panel with keyboard shortcuts
+     - fix the dates flopping between yesterday and today (probably a timezone issue?)
+     - workday-aware date addition
+       - common holidays
+     - change the task expand/close
+       - move the toggle to an explicit column so you can see it
+       - allow more than one to be open
+       - add an expand/collapse all button to the header
+     - milestones
+       - should have an optional deadline, which will show on the graph where
+         we're going to slip and by how much.
+     - save
+     - merge adjacent tasks
+     - factor out table generation and management to a library that can be
+       committed back to d3/contrib.
+     - task operations:
+       - when holding down control - turn status icons into trash bins
+       - when a task is expanded:
+         - add a "split task" icon:
+           - to the right of the current node, two halves with a line between.
+         - add a (+) node for new:
+           - task between any node requiring this one
+             - this is fairly easy, because the way the edges are routed, these
+               will all have a nice long vertical run in the current row.
+           - task between any dependency
+             - this is slightly harder, requires modifying the edges so they
+               have vertical runs in the current row
+           - dependency
+           - follow-on
+             - these require finding an empty column, or squeezing it
+               between the existing columns
+       - add new task (depends on..., required by...)
+       - split task
+     - fix navigation
+       - left/right arrows should highlight different columns
+     - handle unestimated tasks
+       - click to scroll to unestimated task
+       - highlight row for unestimated tasks
+     - filters
+       - hide completed tasks
+       - hide blocked tasks
+       - hide unstarted tasks
+       - unestimated only
+       - search
+     - sort
+       - by start date (topo sort in order of start date)
+       - by critical path (topo sort: longest subchain first)
+     - update dates only for tasks that depend on the edited one.
+     - undo/redo -- OT (operational transform)
+       - hammer it--generate random mutations, snapshot, apply, revert, compare
+       - merge edits from another user
+     - icons for all tools
+       - sticky column headers
+       - resizable task column divider
+       - tool for show/hide estimates, start/end dates
+       - column for eng estimate vs calendar estimates
+     - replace row lines with a repeating background
+     - task id column
+     - task type column
+       - filter: show only milestones
+       - milestones don't have durations, they have the end time of the last
+         task they depend on.
+         - milestones have a business impact, which can be left blank, or
+           can be given a range, or a comma-separated list of percentiles.
+           - this would be a good target for a colab API - to write the
+             business impact for a milestone from colab.
+       - add eng effort estimation
+         - eng effort rolls up to a milestone
+     - groups
+     - row highlight
+     - app chrome
+       - hook up menus
+     - detail pane
+     - bottom tabs
+       - hook up to something
+     - gantt column -- show lb/ub/median start -- end dates
+     - scheduling constraints
+       - assignee column?
+       - not all immediately executable tasks will be executed immediately.
+         - allow specifying how many workers there are (at a project level, or
+           at a task group level).
+     - toolbar
+       - search / filter
+     - key journeys to think through:
+       - portfolio view -- shows all the projects in this portfolio with end
+         dates
+       - backlog -- shows all projects, shows project dependencies
+         - (depending on a task in another project --- how to do it?)
+           - from the simulation's POV, there's no such thing as a project --
+             it's all simulated at a task level anyway. It's just odd to depend
+             on a task that's not in the current view.
+       - common task library
+         - create and edit tasks that can be shared by others.
+         - when creating a new task, give the option to choose an existing one.
+       - attaching business value to milestones
+         - curating and managing the levers we use for estimates
+         - tracking their changes over time as we learn more from our projects
+           (eg experiment results show that the predicted impact on the lever
+            wasn't as high as expected)
+         - tracking their changes over time as we learn more about the world
+           (eg we have new OMG data that changes the confidence intervals on
+            expected impact duration / frequency).
+       - tracking eng effort
+         - consider a chrome extension? We want to compare estimated eng time
+           to actual eng time so we can improve our estimates, but also so we
+           can calculate the actual ROI at the end of the project.
+       - handling maintenance, outages, and breakages
+         - would be cool if we could list our areas of ownership and track time
+           against maintaining them
+         - similar if we're supporting customers -- if we were a company, we'd
+           either be billing these folks, or burning down support against our
+           contract. Not that we're going to penalize or refuse to support these
+           customers, but we could be asking them for more information on the
+           impact that we're enabling.
+   */
+  const tasks = randomTasks(3);
+  const G = randomGraph(tasks);
+
+  const N = tasks.length;
+  const WIDTH = 1024;
+  const FONTSIZE = 14;
+  const PAD = 5;
+
+  const YSKIP = FONTSIZE + PAD * 2;
+  const LANESKIP = Math.floor(2 * FONTSIZE / 5 + PAD * 2);
+  const RADIUS = YSKIP / 8;
+  const HEIGHT = YSKIP * (N + 10);
+  const DETAIL_HEIGHT = 3 * YSKIP;
+  const g = mainGraph(G);
+
+  // TODO: fix this. When scrolling full right, the column headers stop moving
+  // because the content has a vertical scroll-bar in the way. The fix is probably
+  // to stick a DIV in the column header container to eat that space so the scroll
+  // matches.
+  d3.select(view.columnHeaders).style("min-width", `${WIDTH}px`);  // account for scrollbar width
+
+  const svg = d3.select("#grid")
+    .attr("width", WIDTH)
+    .attr("height", HEIGHT)
+    .attr("viewBox", `0 0 ${WIDTH} ${HEIGHT}`)
+    .attr("font-size", FONTSIZE);
+
+  const svgData = d3.select("#data-content");
+  const svgControls = d3.select("#grid-controls");
+  const editors = [];
+
+  class InlineEdit {
+    constructor(id, extraWidth = 0) {
+      this.extraWidth = extraWidth;
+      this.foreignObject = d3.select(`#${id}`);
+      this.helpObject = d3.select(`#${id}-help`);
+      this.editorId = editors.length;
+      editors.push(this);
+    }
+    place(x, y, w, h) {
+      this.foreignObject
+          .attr("x", x).attr("y", y)
+          .attr("width", w + this.extraWidth).attr("height", h)
+          .classed('hidden', false);
+      if (this.helpObject) {
+        this.helpObject
+          .attr("x", x).attr("y", y + h).attr("width", 200).attr("height", 50)
+          .classed('hidden', false);
+      }
+    }
+    append(kind) {
+      return this.foreignObject.append(kind);
+    }
+    hide() {
+      this.foreignObject.classed("hidden", true);
+      this.helpObject.classed("hidden", true);
+    }
+    tab(me) {
+      // hack: we happen to know that the editors are the last N columns.
+      const offset = view.allHeaders.length - editors.length;
+      const nextEditor = this.editorId + 1;
+      if (nextEditor == editors.length) {
+        editors[0].edit(g.next(me), view.allHeaders[offset]);
+        selectedTasks.set(g.next(me));
+      } else {
+        editors[nextEditor].edit(me, view.allHeaders[offset + nextEditor]);
+      }
+    }
+    tabDir(me, forward) {
+      if (forward) this.tab(me); else this.backTab(me);
+    }
+    backTab(me) {
+      const offset = view.allHeaders.length - editors.length;
+      const nextEditor = this.editorId - 1;
+      if (nextEditor < 0) {
+        editors[editors.length - 1].edit(g.prev(me),
+            view.allHeaders[view.allHeaders.length - 1]);
+        selectedTasks.set(g.prev(me));
+      } else {
+        editors[nextEditor].edit(me, view.allHeaders[offset + nextEditor]);
+      }
+    }
+    handleKeydown(e, hasPrevControl, hasNextControl) {
+      let me = this.data.task;
+      if (e.key == 'Escape') {
+        this.dismiss();
+      } else if (e.key == 'Enter') {
+        this.accept();
+        this.dismiss();
+        if (e.ctrlKey || e.altKey)
+          selectedTasks.createTask({before: e.shiftKey, branch: e.altKey});
+      } else if (e.key == 'Tab') {
+        if (e.shiftKey && !hasPrevControl ||
+            !e.shiftKey && !hasNextControl) {
+          this.accept();
+          this.dismiss();
+          e.preventDefault();
+          e.stopPropagation();
+          this.tabDir(me, !e.shiftKey);
+        }
+      }
+    }
+  }
+
+  class NameEdit extends InlineEdit {
+    constructor() {
+      super('name-edit');
+      this.input = d3.select("#inline-edit")
+        .on("keydown", e => this.handleKeydown(e));
+      this.data = null;
+    }
+    value() {
+      return this.input.node().value;
+    }
+    accept() {
+      if (this.data === null) return;
+      // TODO: write as a mutation so it can be applied to other views.
+      this.data.task.name = this.value();
+      view.rows.updateNames();
+      console.log("changed task", this.data.task.id, "name", this.value());
+    }
+    dismiss() {
+      this.hide();
+      this.data = null;
+    }
+    edit(task, hdr) {
+      this.data = {task}
+      const n = this.input.node();
+      n.select();
+      n.setRangeText(task.name);
+      this.place(hdr.x, rowy.get(task), hdr.width, YSKIP);
+      n.focus();
+      n.select();
+    }
+  }
+  const nameEdit = new NameEdit();
+
+  class EstEdit extends InlineEdit {
+    constructor() {
+      super('est-edit', FONTSIZE);
+      this.outer = d3.select("#est-edit-inner");
+      this.input = d3.select("#est-edit-input");
+      this.clearButton = d3.select("#est-edit-clear");
+      this.input.on("keydown", e => this.handleKeydown(e, false, true));
+      this.clearButton.on("keydown", e => this.handleKeydown(e, true, false));
+      const chg = e => {
+        const est = this.check();
+        this.outer.classed("error", !est);
+      }
+      this.input.on("keyup", chg);
+      this.clearButton.on("click", () => this.clear());
+      this.data = null;
+    }
+    edit(task, hdr) {
+      this.data = {task }
+      this.outer.classed("error", false);
+      const input = this.input.node();
+      input.select(); input.setRangeText(task.displayEstimate());
+      this.place(hdr.x, rowy.get(task), hdr.width, YSKIP);
+      input.select();
+      input.focus();
+    }
+    check() {
+      return Estimate.check(this.input.node().value);
+    }
+    dismiss() {
+      this.hide();
+      this.outer.classed("error", false);
+      this.data = null;
+    }
+    clear() {
+      console.log("Clear estimate for ", this.data.task.id);
+      this.data.task.estimate = null;
+      view.rows.updateEstimates();
+      this.dismiss();
+      setTimeout(calculateDates, 0);
+    }
+    accept() {
+      const est = this.check();
+      if (est) {
+        this.data.task.estimate = est;
+        view.rows.updateEstimates();
+        console.log("Updating estimate for task", this.data.task.id, "to", est);
+        setTimeout(calculateDates, 0);
+      }
+      this.dismiss();
+    }
+  }
+  const estEdit = new EstEdit();
+
+  class DateEdit extends InlineEdit {
+    constructor(id, setTaskDate, getTaskDate) {
+      super(id, FONTSIZE);
+      this.setTaskDate = setTaskDate;
+      this.getTaskDate = getTaskDate;
+      this.div = this.foreignObject.select(".date-edit")
+      this.input = this.foreignObject.select("input")
+          .on("keydown", e => this.handleKeydown(e, false, true));
+      this.button = this.foreignObject.select("button")
+          .on("click", () => this.clear())
+          .on("keydown", e => this.handleKeydown(e, true, false));
+    }
+    value() {
+      return this.input.node().valueAsDate;
+    }
+    setValue(value) {
+      if (value === null) {
+        value = new Date();
+      }
+      this.input.node().valueAsDate = value;
+    }
+    clear() {
+      const {task, text} = this.data;
+      console.log("Cleared start date", task.id);
+      this.setTaskDate(task, null);
+      text.textContent = '';
+      view.rows.updateTaskStatus();
+      this.dismiss();
+      this.update();
+    }
+    update() {
+      window.setTimeout(() => {
+        calculateDates();
+        view.rows.updateTaskStatus();
+      }, 0);
+    }
+    edit(task, hdr) {
+      this.data = {task};
+      this.setValue(this.getTaskDate(task));
+      this.place(hdr.x, rowy.get(task), hdr.width, YSKIP);
+      this.input.node().focus();
+    }
+    accept() {
+      if (this.data === null) return;
+      const {task} = this.data;
+      this.dismiss();
+      if (this.getTaskDate(task) != this.value()) {
+        this.setTaskDate(task, this.value());
+        this.update();
+      }
+    }
+    dismiss() {
+      this.data = null;
+      this.hide();
+    }
+  }
+
+  const startEdit = new DateEdit('start-edit',
+      (t, v) => t.started = v,
+      t => t.started);
+  const finishEdit = new DateEdit('finish-edit',
+      (t, v) => t.finished = v,
+      t => t.finished);
+
+  svgData.on("click", () => {
+    editors.forEach(e => e.hide());
+  });
+
+  // These are maps rather than properties of Task because they depend on the
+  // view. With filters applied, they might land in different lanes, etc.
+  const doty = new Map();
+  const rowy = new Map();
+  const rowh = new Map();
+  let expandedTasks = new Set();
+  const layoutY = () => {
+    let ys = 0;
+    g.topo.forEach(t => {
+      const expanded = expandedTasks.has(t);
+      let h = YSKIP;
+      let bump = 0;
+      if (expanded) {
+        h += DETAIL_HEIGHT;
+        bump = Math.floor(DETAIL_HEIGHT * 0.5);
+      }
+      rowy.set(t, ys);
+      rowh.set(t, h);
+      doty.set(t, ys + Math.floor(0.5 * YSKIP) - RADIUS + bump);
+      ys += h;
+    });
+  }
+  layoutY();
+  const dotx = new Map();
+  const setHilite = t => {
+    if (expandedTasks.has(t)) {
+      expandedTasks.clear();
+    } else {
+      expandedTasks.clear();
+      expandedTasks.add(t);
+    }
+    layoutY();
+    view.rows.updateYs();
+    view.rows.updateDotRadii();
+    view.rows.updateExpanded();
+  }
+  const selectedTasks = {
+    _tasks: new Set(),
+    _last_task: undefined,
+    _updateClasses: function () {
+      if (this._tasks.size > 0) {
+        document.body.classList.add('tasks-selected');
+      } else {
+        document.body.classList.remove('tasks-selected');
+      }
+      if (this._tasks.size > 1) {
+        document.body.classList.add('multiple-tasks-selected');
+      } else {
+        document.body.classList.remove('multiple-tasks-selected');
+      }
+    },
+    del: function ({healEdges}) {
+      const lastTask = this._orderedTasks().pop();
+      const nextTask = g.next(lastTask);
+      for (let t of this._tasks) {
+        this._del(t, {healEdges});
+      }
+      this.set(nextTask);
+      recreateRows();
+      window.setTimeout(calculateDates, 0);
+    },
+    _del(t, {healEdges}) {
+      g.removeNode(t, healEdges);
+      this._tasks.delete(t);
+      if (this._last_task == t) {
+        this._last_task = this._orderedTasks().pop();
+      }
+    },
+    add: function (t) {
+      this._tasks.add(t);
+      this._last_task = t;
+      view.rows.updateSelection();
+      this._updateClasses();
+    },
+    set: function (t) {
+      this._tasks.clear();
+      this._tasks.add(t);
+      this._last_task = t;
+      view.rows.updateSelection();
+      this._updateClasses();
+    },
+    addRange: function (t) {
+      if (!this._last_task) {
+        this.add(t);
+        return;
+      }
+      const last_idx = g.topo.indexOf(this._last_task);
+      const t_idx = g.topo.indexOf(t);
+      const [from, to] = [last_idx, t_idx].sort(byValue);
+      for (let i = from; i <= to; i++) {
+        this._tasks.add(g.topo[i]);
+      }
+      this._last_task = t;
+      view.rows.updateSelection();
+      this._updateClasses();
+    },
+    has: function (t) {
+      return this._tasks.has(t);
+    },
+    isActive: function (t) {
+      return this._last_task == t;
+    },
+    clear: function (t) {
+      this._tasks.clear();
+      this._last_task = null;
+      view.rows.updateSelection();
+      this._updateClasses();
+    },
+    active: function() {
+      return this._last_task;
+    },
+    next() {
+      this.set(g.next(this._last_task));
+    },
+    prev() {
+      this.set(g.prev(this._last_task));
+    },
+    growDown() {
+      this.add(g.next(this._last_task));
+    },
+    growUp() {
+      this.add(g.prev(this._last_task));
+    },
+    _orderedTasks() {
+      const tasks = Array.from(this._tasks.values());
+      tasks.sort((a, b) => g.topo.indexOf(a) - g.topo.indexOf(b));
+      return tasks;
+    },
+    _reverseOrderedTasks() {
+      const tasks = Array.from(this._tasks.values());
+      tasks.sort((a, b) => g.topo.indexOf(b) - g.topo.indexOf(a));
+      return tasks;
+    },
+    addDeps() {
+      const tasks = this._orderedTasks();
+      const t = tasks.pop();
+      tasks.forEach(p => g.addEdge(t, p));
+      recreateRows();
+      view.rows.updateTaskStatus();
+      setTimeout(calculateDates, 0);
+    },
+    removeDeps() {
+      console.log('removeDeps');
+      const tasks = this._orderedTasks();
+      const t = tasks.pop();
+      const dependsOn = g.edges(t);
+      tasks.filter(p => dependsOn.indexOf(p) >= 0).forEach(p =>
+          g.removeEdge(t, p));
+      recreateRows();
+      view.rows.updateTaskStatus();
+      setTimeout(calculateDates, 0);
+    },
+    shiftUp() {
+      const tasks = Array.from(this._tasks.values());
+      tasks.sort((a, b) => g.topo.indexOf(a) - g.topo.indexOf(b));
+      for (let t of tasks) {
+        const dependsOn = g.edges(t);
+        const latestDep = Math.max(0, ...dependsOn.map(d => g.topo.indexOf(d)));
+        const idx = g.topo.indexOf(t);
+        if (idx - 1 > latestDep) {
+          const old = g.topo[idx - 1];
+          g.topo.splice(idx - 1, 2, t, old);
+        }
+      }
+      recreateRows();
+    },
+    shiftDown() {
+      const tasks = Array.from(this._tasks.values());
+      tasks.sort((a, b) => g.topo.indexOf(b) - g.topo.indexOf(a));
+      for (let t of tasks) {
+        const requiredBy = g.invEdges(t);
+        const firstReq = Math.min(g.topo.length,
+            ...requiredBy.map(d => g.topo.indexOf(d)));
+        const idx = g.topo.indexOf(t);
+        if (idx + 1 < firstReq) {
+          const old = g.topo[idx + 1];
+          g.topo.splice(idx, 2, old, t);
+        }
+      }
+      recreateRows();
+    },
+    edit() {
+      if (this._last_task) nameEdit.edit(this._last_task, view.headers.name);
+    },
+    createTask({before, branch}) {
+      const t = new Task('New task');
+      if (!this._last_task) {
+        g.topo.splice(0, t);
+        return;
+      }
+      const selectedIdxs = [];
+      this._tasks.forEach(t => selectedIdxs.push(g.topo.indexOf(t)));
+      const targetIdx = before ? Math.min(...selectedIdxs) : Math.max(...selectedIdxs);
+      const target = g.topo[targetIdx];
+      if (before) {
+        g.insertBefore(t, target);
+      } else {
+        g.insertAfter(t, target);
+      }
+      if (before) {
+        if (!branch) {
+          const edges = [...g.edges(target)];  // copy
+          edges.forEach(to => {
+            g.addEdge(t, to);
+            g.removeEdge(target, to);
+          });
+        }
+        this._tasks.forEach(c => g.addEdge(c, t));
+      } else {
+        if (!branch) {
+          const invEdges = [...g.invEdges(target)];
+          invEdges.forEach(from => {
+            g.addEdge(from, t);
+            g.removeEdge(from, target);
+          });
+        }
+        this._tasks.forEach(p => g.addEdge(t, p));
+      }
+      recreateRows();
+      nameEdit.edit(t, view.headers.name);
+      selectedTasks.set(t);
+      window.setTimeout(calculateDates, 0);
+    },
+    toggleStatus() {
+      console.log('toggle status', this._last_task);
+      this._last_task?.toggleStatus(new Date());
+      window.setTimeout(() => {
+        calculateDates();
+        view.rows.updateTaskStatus();
+      });
+    }
+  };
+
+  d3.select(document.body)
+    .on('keydown', e => {
+      if (e.target != document.body) {
+        return;
+      }
+      if (e.key == 'Escape') {
+        selectedTasks.clear();
+      }
+      if (e.key == 'Enter') {
+        if (e.ctrlKey || e.altKey) {
+          selectedTasks.createTask({before: e.shiftKey, branch: e.altKey})
+        } else {
+          selectedTasks.edit();
+        }
+      }
+      if (e.key == 'Delete' || e.key == 'Backspace') {
+        selectedTasks.del({healEdges: e.ctrlKey});
+      }
+      if (e.key == 'd') {
+        selectedTasks.addDeps();
+      }
+      if (e.key == 'D') {
+        selectedTasks.removeDeps();
+      }
+      if (e.key == 'ArrowDown' || e.key == 'j' || e.key == 'J') {
+        if (e.ctrlKey) {
+          selectedTasks.shiftDown();
+        } else if (e.shiftKey) {
+          selectedTasks.growDown();
+        } else {
+          selectedTasks.next();
+        }
+        e.preventDefault();
+      }
+      if (e.key == 'ArrowUp' || e.key == 'k' || e.key == 'K') {
+        if (e.ctrlKey) {
+          selectedTasks.shiftUp();
+        } else if (e.shiftKey) {
+          selectedTasks.growUp();
+        } else {
+          selectedTasks.prev();
+        }
+        e.preventDefault();
+      }
+      if (e.key == ' ') {
+        selectedTasks.toggleStatus();
+        e.preventDefault();
+      }
+    });
+  const layoutX = () => {
+    /* We need to assign each task to a column, then arrange the columns
+       so they don't overlap. It helps to think about the task graph as though
+       it were git commits.
+
+       We start by keeping a list of growable tips. These represent nodes that
+       have following work that depends on them. We have to keep this list
+       up-to-date: when a tip no longer has any nodes that depend on it, we can
+       remove it from this list and call its column "complete". To achieve this,
+       we use reference counting. When a node is added as a tip, we look at how
+       many other nodes depend on it, and set its initial reference count to
+       that number. As we find nodes that depend on it, we decrease the
+       reference count until it reaches zero, then we can remove the tip.
+     */
+    const unclaimed = g.copy();
+    class Column { first; last; x; rect };
+    const columns = [];
+    let colid = 0;
+    const freeCols = [];
+    const freeCol = (parents, t) => {
+      const parentXs = parents.map(p => columnOf.get(p).x);
+      for (let i = 0; i < freeCols.length; i++) {
+        if (parentXs.indexOf(freeCols[i]) >= 0) continue;
+        const x = freeCols[i];
+        if (crossesAny(t, x, parents, undefined)) continue;
+        freeCols.splice(i, 1);
+        return x;
+      }
+      return colid++;
+    }
+    const newColumn = (t, parents) => {
+      let id = freeCol(parents, t);
+      const col = new Column();
+      col.x = id;
+      col.first = t;
+      col.last = t;
+      columns.push(col);
+      return col;
+    }
+    const order = new Map(g.topo.map((v, i) => [v, i]));
+    const byOrder = (a, b) => order.get(a) < order.get(b);
+    const idOf = t => t.id;
+    const columnOf = new Map();
+    const crosses = (p, t, colId) => {
+      for (let i = order.get(p) + 1; i < order.get(t); i++) {
+        const n = g.topo[i];
+        const c = columnOf.get(n);
+        if (c.x == colId) {
+          return true;
+        }
+      }
+      return false;
+    }
+    const crossesAny = (t, colId, parents, except) => {
+      for (let p of parents) {
+        if (p == except) continue;
+        if (crosses(p, t, colId)) {
+          return true;
+        }
+      }
+      return false;
+    }
+    const endColumn = (col, t) => {
+      if (freeCols.indexOf(col) >= 0) throw 'wtf';
+      freeCols.push(col.x);
+      freeCols.sort(byValue);
+      columns.splice(columns.indexOf(col), 1);
+      const mx = dotx.get(col.first);
+      const sx = mx - 2 * RADIUS;
+      const sy = doty.get(col.first) - 2 * RADIUS;
+      const ey = doty.get(col.last) + 2 * RADIUS;
+    }
+    const getColumn = t => {
+      const parents = g.edges(t);
+      const firstChildOf = parents.filter(p => g.invEdges(p).indexOf(t) == 0);
+      for (let p of firstChildOf) {
+        const col = columnOf.get(p);
+        if (crossesAny(t, col.x, parents, p)) {
+          continue;
+        }
+        return col;
+      }
+      return newColumn(t, parents);
+    }
+    g.topo.forEach(t => {
+      const col = getColumn(t);
+      col.last = t;
+      columnOf.set(t, col);
+      dotx.set(t, PAD + Math.floor((col.x + 0.5) * LANESKIP));
+      g.edges(col.last).forEach(p => unclaimed.removeEdge(t, p));
+      for (let c of columns) {
+        if (unclaimed.invEdges(c.last).length == 0) {
+          endColumn(c, t);
+        }
+      }
+    });
+    let curX = 0;
+    view.allHeaders = [];
+    view.headers = {};
+    // uses box-sizing model (width includes padding)
+    const _hdr = (varname, title, width, editor, getText) => {
+      view.headers[varname] = {title, width, varname, getText,
+        x: ++curX, xe: curX += 2 * PAD + width - 2, editor}
+      view.allHeaders.push(view.headers[varname]);
+    }
+
+    _hdr('circles', '', 2 * PAD + colid * LANESKIP, null, null);
+    _hdr('status', '', LANESKIP, null, null);
+    _hdr('name', 'Task name', FONTSIZE * 20, nameEdit, t => t.name);
+    _hdr('est', 'Est', FONTSIZE * 5, estEdit, t => t.displayEstimate());
+    _hdr('start', 'Start', FONTSIZE * 14, startEdit,
+        t => fmtDateAll(t.started, startDateP.get(t)));
+    _hdr('end', 'End', FONTSIZE * 14, finishEdit,
+        t => fmtDateAll(t.finished, endDateP.get(t)));
+    d3.select("#column-headers")
+      .attr("width", WIDTH)
+      .attr("height", 24)
+      .attr("viewBox", `0 0 ${WIDTH} 24`)
+        .selectAll("text")
+      .data(view.allHeaders).join("text")
+      .attr("x", h => h.x + PAD)
+      .attr("y", 12)
+      .text(h => h.title);
+  }
+  layoutX();
+
+  const path = (e, s) => {
+    const sx = dotx.get(s);
+    const ex = dotx.get(e);
+    const sy = doty.get(s);
+    const ey = doty.get(e);
+    const sr = expandedTasks.has(s) ? RADIUS * 2 : RADIUS;
+    const er = expandedTasks.has(e) ? RADIUS * 2 : RADIUS;
+    const syo = expandedTasks.has(s) ? YSKIP - 2 * RADIUS : 0;
+    const eyo = expandedTasks.has(s) ? YSKIP - 2 * RADIUS : 0;
+    if (sx == ex) {
+      return `M ${sx} ${sy + sr} V ${ey - er}`;
+    } else {
+      const curve = (YSKIP / 2 - RADIUS) / 2;
+      const xcurve = ex > sx ? curve : -curve;
+      const tsweep = ex > sx ? 0 : 1;
+      const bsweep = 1 - tsweep;
+      return `M ${sx} ${sy + sr} ` +
+             (syo > 0 ? `v ${syo} ` : "") +
+             `a ${xcurve} ${curve} 0 0 ${tsweep} ${xcurve} ${curve}` +
+             `H ${ex - xcurve}` +
+             `a ${xcurve} ${curve} 0 0 ${bsweep} ${xcurve} ${curve}` +
+             `V ${ey - er}`;
+    }
+  };
+
+  const startDateP = new Map();
+  const endDateP = new Map();
+
+  createRows = (rowsGroup, edgesGroup, clipPath) => {
+    const _updateYs = [];
+    const _updateOpacity = [];
+    const _resetOpacity = [];
+    const onOpacity = s => {
+      _resetOpacity.push(s);
+      _updateOpacity.push(viewSet =>
+          s.attr("opacity", t => viewSet.has(t) ? 1 : .25));
+    }
+    const child = (s, element, cls) => {
+      if (Array.isArray(cls)) {
+        classes = cls.map(c => '.' + c).join('');
+        return s.selectAll(`${element}${classes}`)
+            .data(d => [d]).join(element).classed(cls.join(' '), true);
+      }
+      if (cls) {
+        return s.selectAll(`${element}.${cls}`)
+            .data(d => [d]).join(element).classed(cls, true);
+      }
+      return s.selectAll(element).data(d => [d]).join(element);
+    }
+    const ret = {};
+    const onY = cb => s => {
+      _updateYs.push(() => cb(s));
+    }
+    const rows = rowsGroup
+      .selectAll("g.row").data(g.topo, t => t.id)
+      .join("g").classed("row", true)
+      .attr("transform", t => `translate(0 ${rowy.get(t)})`)
+      .call(d3.drag()
+          // .container(rowsGroup)
+          .on("start", function (e, d) {
+            if (!selectedTasks.has(d)) {
+              selectedTasks.add(d);
+              e.on('drag', function (event, d) {
+                console.log(event);
+              });
+            } else {
+              // TODO: if the row is "selected", then initiate "drag to highlight"
+              // TODO: drag all the selected rows, not just the one that got
+              // clicked.
+              const row = d3.select(this).classed('dragging', true);
+              const offset = e.y - rowy.get(d);
+              // TODO: create an "insertion cursor" - a bold line
+              // TODO: find the movement range --- the last dependsOn (edge)
+              //       and the first requiredBy (invEdge)
+              //       and draw a little box so the user isn't confused why their
+              //       drag is sticking
+              const dragged = (event, d) => {
+                // TODO: find the row under the event.
+                // If the pointer is in the lower half, the insertion is
+                // at the bottom, and the drop would land the node after
+                // the row under the event.
+                // Opposite for if the pointer is in the upper half.
+                row.attr('transform', `translate(0, ${event.y - offset})`);
+              }
+              const ended = () => {
+                row.classed('dragging', false);
+              }
+              e.on('drag', dragged).on('end', ended);
+            }
+          }))
+      .on("click", (e, t) => {
+        if (e.ctrlKey) {
+          selectedTasks.add(t);
+        } else if (e.shiftKey) {
+          selectedTasks.addRange(t);
+        } else {
+          selectedTasks.set(t);
+        }
+      })
+      .call(s => ret.updateSelection = () =>
+          s.classed('selected', t => selectedTasks.has(t))
+           .classed('active', t => selectedTasks.isActive(t)))
+      .call(onY(s => s.attr("transform", t => `translate(0 ${rowy.get(t)})`)));
+    child(rows, 'rect', 'row-rect')
+        .attr("x", 0).attr("y", 0).attr("width", WIDTH).attr("height", t => rowh.get(t))
+        .call(onY(s => s.attr("height", t => rowh.get(t))));
+
+    child(rows, 'line', 'gridline')
+      .attr("x1", 0).attr("x2", WIDTH)
+      .call(onY(g => g
+            .attr("y1", t => rowh.get(t)).attr("y2", t => rowh.get(t))));
+
+    child(rows, 'g', 'circles')
+        .on("click", (e, t) => { setHilite(t); return e; })
+        .call(gs => child(gs, 'rect', 'grid-rect')
+          .attr("x", 0).attr("y", 1).attr("width", view.allHeaders[0].width)
+          .call(onY(r => r.attr("height", t => rowh.get(t) - 2))))
+        .call(gs => child(gs, "circle", "task-dot")
+          .attr("cx", t => dotx.get(t))
+          .attr("cy", Math.floor(0.5 * YSKIP) - RADIUS)
+          .call(onY(c => c.attr("cy", t => 0.5 * rowh.get(t) - RADIUS)))
+          .call(onOpacity)
+          .call(s => {
+            ret.updateDotRadii = () => {
+              s.attr("r", t => expandedTasks.has(t) ? RADIUS * 2 : RADIUS);
+            };
+          }));
+    ret.updateDotRadii();
+
+    const makeIcons = (rows) => {
+      const use = child(rows, "use", "status-icon")
+          .attr("transform", `translate(${view.headers.status.x} 0)`)
+          .on("click", (e, t) => {
+        t.toggleStatus(new Date());
+        window.setTimeout(() => {
+          calculateDates();
+          ret.updateTaskStatus();
+        });
+      });
+      const tooltip = child(use, 'title');
+
+      ret.updateTaskStatus = () => {
+        tooltip.text(t => t.statusTitle());
+        use.attr("href", t=> t.statusIcon())
+            .call(onOpacity);
+      }
+      ret.updateTaskStatus();
+    }
+    makeIcons(rows);
+
+    edgesGroup
+      .selectAll("path").data(g.allEdges, e => e).join("path")
+      .classed("node-path", true)
+      .call(onY(s => s.attr("d", ([s, e]) => path(s, e))))
+      .call(es => {
+        _resetOpacity.push(es);
+        _updateOpacity.push(viewSet => 
+          es.attr("opacity",
+            ([s, e]) => expandedTasks.has(s) || expandedTasks.has(e) ? 1 : .25));
+      });
+
+    // NB: the cell contents are in a group which is translated. The clipping
+    // path coordinates use the group coordinates, so the clip rectangle starts
+    // at 0, even though the column resides elsewhere in document coordinates.
+    clipPath.attr("x", 0).attr("width", view.headers.name.width);
+
+    const updateCol = {}
+    const createEditables = (hdr) => {
+      const groups = child(rows, 'g', ['grid-cell', `${hdr.varname}-cell`])
+          .attr("transform", `translate(${hdr.x}, 0)`)
+          .call(groups => child(groups, 'rect', 'grid-rect')
+              .attr("x", 0).attr("y", 1)
+              .attr("width", hdr.width).attr("height", YSKIP - 2));
+      if (hdr.editor) {
+        groups
+          .on("dblclick", (e, t) => hdr.editor.edit(t, hdr));
+      }
+      const texts = child(groups, 'text')
+        .attr("x", + PAD)
+        .attr("y", Math.floor(.5 * YSKIP))
+        .call(onOpacity);
+      if (hdr.getText) {
+        texts.text(hdr.getText);
+        updateCol[hdr.varname] = () => texts.text(hdr.getText);
+      }
+      return texts;
+    }
+
+    createEditables(view.headers.name).attr("clip-path", "url(#clip-name)");
+    createEditables(view.headers.est);
+    createEditables(view.headers.start);
+    createEditables(view.headers.end);
+
+    ret.updateNames = updateCol.name;
+    ret.updateEstimates = updateCol.est;
+    ret.displayDates = () => {
+      updateCol.start();
+      updateCol.end();
+    }
+
+    ret.updateYs = () => {
+      _updateYs.forEach(c => c());
+    }
+    ret.updateYs();
+    ret.updateExpanded = () => {
+      if (expandedTasks.size) {
+        const viewSet = new Set();
+        expandedTasks.forEach(t => {
+          viewSet.add(t);
+          g.edges(t).forEach(t => viewSet.add(t));
+          g.invEdges(t).forEach(t => viewSet.add(t));
+        });
+        _updateOpacity.forEach(cb => cb(viewSet));
+        return;
+      }
+
+      _resetOpacity.forEach(s => s.attr("opacity", 1));
+    }
+    return ret;
+  };
+  view.rowsGroup = svgData.append("g").attr("class", "rows");
+  view.edgesGroup = svgData.append("g").classed("edges", true)
+  view.clipPath =
+    svgData.append("clipPath").attr("id", "clip-name").append("rect")
+      .attr("y", 0)
+      .attr("height", HEIGHT);
+  view.rows = createRows(view.rowsGroup, view.edgesGroup, view.clipPath);
+  const recreateRows = () => {
+    layoutY();
+    layoutX();
+    view.rows = createRows(view.rowsGroup, view.edgesGroup, view.clipPath);
+    const viewHt = (g.topo.length + 10) * YSKIP
+    view.clipPath.attr("height", viewHt);
+    svg.attr("viewBox", `0 0 ${WIDTH} ${viewHt}`)
+        .attr("height", viewHt);
+  }
+
+  const I = 1000;
+  const np_rand_norm90 = (lb, ub) => {
+    const sigma = (ub - lb) / 3.29;
+    const mean = (ub + lb) / 2;
+    const a = new Array(I);
+    for (let i = 0; i < I; i += 2) {
+      const u1 = 1 - Math.random();
+      const u2 = Math.random();
+      const mag = sigma * Math.sqrt(-2 * Math.log(u1));
+      a[i] = Math.max(0, mag * Math.cos(2 * Math.PI  * u2) + mean);
+      a[i + 1] = Math.max(0, mag * Math.sin(2 * Math.PI * u2) + mean);
+    }
+    return a;
+  }
+  const np_avg = a => {
+    for (let a of as) {
+      if (a.err) return a;
+    }
+    let r = 0;
+    for (let v of a) r += v;
+    return r / a.length;
+  }
+  const np_add = as => {
+    for (let a of as) {
+      if (a.err) return a;
+    }
+    const scalar = as.filter(a => !Array.isArray(a)).reduce((a, b) => a + b, 0);
+    as = as.filter(a => Array.isArray(a));
+    if (as.length == 0) return scalar;
+    const m = as.length;
+    const n = as[0].length;
+    const out = new Array(n);
+    for (let i = 0; i < n; i++) {
+      out[i] = scalar;
+      for (let j = 0; j < m; j++)
+        out[i] += as[j][i];
+    }
+    return out;
+  }
+  const np_max = as => {
+    for (let a of as) {
+      if (a.err) return a;
+    }
+    const scalar = as.filter(a => !Array.isArray(a))
+        .reduce((a, b) => Math.max(a, b), Number.NEGATIVE_INFINITY);
+    as = as.filter(a => Array.isArray(a));
+    if (as.length == 0) return scalar;
+    const m = as.length;
+    const n = as[0].length;
+    const out = new Array(n);
+    for (let i = 0; i < n; i++) {
+      out[i] = scalar;
+      for (let j = 0; j < m; j++)
+        out[i] = Math.max(out[i], as[j][i]);
+    }
+    return out;
+  }
+  const np_percentile90 = a => {
+    if (a.err) return a;
+    if (!Array.isArray(a)) return [a, a];
+    const b = [...a];
+    b.sort(byValue);
+    return [b[Math.floor(b.length * .05)],
+            b[Math.floor(b.length * .95)]];
+  }
+
+  const durations = new Map();
+  const startDates = new Map();
+  const endDates = new Map();
+  const today = new Date();
+  const two_weeks = new Date();
+  two_weeks.setDate(two_weeks.getDate() + 14);
+  const defaultStart = np_rand_norm90(today.valueOf(), two_weeks.valueOf());
+  const doEst = t => {
+    if (t.estimate !== null) {
+      return np_rand_norm90(t.estimate.lb_ms, t.estimate.ub_ms);
+    }
+    return { err: `No estimate for ${t.id}` };
+  }
+
+  const calculateDates = () => {
+    g.topo.filter(t => t.finished === null)
+      .forEach(t => durations.set(t, doEst(t)));
+
+    g.topo.forEach(t => {
+      const parents = g.edges(t);
+      const start = t.started !== null ? t.started.valueOf() :
+          parents.length == 0 ? defaultStart :
+          np_max(parents.map(p => endDates.get(p)).concat([defaultStart]));
+      startDates.set(t, start);
+      startDateP.set(t, np_percentile90(start));
+      const end = t.finished !== null ? t.finished.valueOf() :
+          np_add([start, durations.get(t)]);
+      endDates.set(t, end);
+      endDateP.set(t, np_percentile90(end));
+    });
+    view.rows.displayDates();
+  }
+  setTimeout(calculateDates, 0);
+</script>
