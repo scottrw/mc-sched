@@ -15,7 +15,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 <meta charset="utf-8">
-<title>Monte carlo estimate demo</title>
+<title>CRIB Unified Backlog</title>
   <style type=text/css>
     :root {
       --chrome-background-color: #fafbfd;
@@ -41,7 +41,6 @@ limitations under the License.
       font-size: 14px;
       dominant-baseline: central;
     }
-    .dragging { opacity: 50% }
     .editor { display: block; }
     .editor.hidden { display: none }
     .edit-help.hidden { display: none }
@@ -82,6 +81,25 @@ limitations under the License.
       background-color: white;
       white-space: nowrap;
       user-select: none;
+    }
+    #content-area {
+      flex: 1;
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      max-width: 100%;
+    }
+    #content-panel {
+      max-width: 100%;
+      min-width: 20%;
+      display: flex;
+      flex-direction: column;
+    }
+    #side-panel {
+      flex: 1;
+      min-width: 10em;
+      padding: 2px;
+      box-shadow: 2px 2px 5px #666;
     }
     #content {
       flex-grow: 1;
@@ -301,7 +319,7 @@ limitations under the License.
       </svg>
       <input type=text id=title title="Rename"
              spellcheck=false autocomplete=off
-             value="Monte carlo estimate demo">
+             value="CRIB Unified Backlog">
       <ul id=menus>
         <li>File
         <li>Edit
@@ -319,160 +337,74 @@ limitations under the License.
     </div>
     <input type=search>
   </div>
-  <div id=column-headers-wrapper>
-    <svg id=column-headers height=24 width=100 viewBox="0 0 24 100"></svg>
+  <div id=content-area>
+    <div id=content-panel>
+      <div id=column-headers-wrapper>
+        <svg id=column-headers height=24 width=100 viewBox="0 0 24 100"></svg>
+      </div>
+      <div id=content><svg id=grid>
+        <defs>
+          <symbol id="blocked" refX="0" refY="0" width="24" height="24"
+                  viewBox="0 0 24 24">
+          <rect x="5" y="5" width="14" height="14"
+                stroke="grey" stroke-width="1" fill="rgba(68,71,70,.15)"></rect>
+          </symbol>
+          <symbol id="finished" refX="0" refY="0" width="24" height="24"
+                  viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14"
+                  stroke="black" stroke-width="1" fill="white"></rect>
+            <line fill="none" stroke="black" x1="5" y1="5" x2="19" y2="19"></line>
+            <line fill="none" stroke="black" x2="5" y1="5" x1="19" y2="19"></line>
+          </symbol>
+          <symbol id="ready" refX="0" refY="0" width="24" height="24"
+                  viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14"
+                  stroke="black" stroke-width="1" fill="white"></rect>
+          </symbol>
+          <symbol id="started" refX="0" refY="0" width="24" height="24"
+                  viewBox="0 0 24 24">
+            <rect x="5" y="5" width="14" height="14" stroke="black"
+                  stroke-width="1" fill="white"></rect>
+            <line fill="none" stroke="black" x2="5" y1="5" x1="19" y2="19"></line>
+          </symbol>
+        </defs>
+        <g id=data-content></g>
+        <g id=grid-controls>
+          <foreignObject id=name-edit class="editor hidden">
+            <input type=text id=inline-edit></input>
+          </foreignObject>
+          <foreignObject id=name-edit-help class="edit-help hidden">
+            <div>Ret: Accept<br>Ctrl+ret: new task</div>
+          </foreignObject>
+          <foreignObject id=est-edit class="editor hidden">
+          <div><div id=est-edit-inner><input type=text id=est-edit-input></input><button
+            id=est-edit-clear class="codicon codicon-trash" title="Remove estimate"></div></div></div>
+          </foreignObject>
+          <foreignObject id=est-edit-help class="edit-help hidden">
+            <div style="width: 100%">Like '1-2d' or '1d - 2w'</div>
+          </foreignObject>
+          <foreignObject id=start-edit class="editor hidden">
+            <div class=date-edit><div><input type=date></input></div><button class="codicon codicon-trash"></button></div>
+          </foreignObject>
+          <foreignObject id=finish-edit class="editor hidden">
+            <div class=date-edit><div><input type=date></input></div><button class="codicon codicon-trash"></button></div>
+          </foreignObject>
+        </g>
+      </svg></div>
+    </div>
+    <div id=side-panel>
+      <div>blah blah blah</div>
+      <div>blah blah blah</div>
+    </div>
   </div>
-  <div id=content><svg id=grid>
-    <defs>
-      <symbol id="blocked" refX="0" refY="0" width="24" height="24"
-              viewBox="0 0 24 24">
-      <rect x="5" y="5" width="14" height="14"
-            stroke="grey" stroke-width="1" fill="rgba(68,71,70,.15)"></rect>
-      </symbol>
-      <symbol id="finished" refX="0" refY="0" width="24" height="24"
-              viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14"
-              stroke="black" stroke-width="1" fill="white"></rect>
-        <line fill="none" stroke="black" x1="5" y1="5" x2="19" y2="19"></line>
-        <line fill="none" stroke="black" x2="5" y1="5" x1="19" y2="19"></line>
-      </symbol>
-      <symbol id="ready" refX="0" refY="0" width="24" height="24"
-              viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14"
-              stroke="black" stroke-width="1" fill="white"></rect>
-      </symbol>
-      <symbol id="started" refX="0" refY="0" width="24" height="24"
-              viewBox="0 0 24 24">
-        <rect x="5" y="5" width="14" height="14" stroke="black"
-              stroke-width="1" fill="white"></rect>
-        <line fill="none" stroke="black" x2="5" y1="5" x1="19" y2="19"></line>
-      </symbol>
-    </defs>
-    <g id=data-content></g>
-    <g id=grid-controls>
-      <foreignObject id=name-edit class="editor hidden">
-        <input type=text id=inline-edit></input>
-      </foreignObject>
-      <foreignObject id=name-edit-help class="edit-help hidden">
-        <div>Ret: Accept<br>Ctrl+ret: new task</div>
-      </foreignObject>
-      <foreignObject id=est-edit class="editor hidden">
-      <div><div id=est-edit-inner><input type=text id=est-edit-input></input><button
-        id=est-edit-clear class="codicon codicon-trash" title="Remove estimate"></div></div></div>
-      </foreignObject>
-      <foreignObject id=est-edit-help class="edit-help hidden">
-        <div style="width: 100%">Like '1-2d' or '1d - 2w'</div>
-      </foreignObject>
-      <foreignObject id=start-edit class="editor hidden">
-        <div class=date-edit><div><input type=date></input></div><button class="codicon codicon-trash"></button></div>
-      </foreignObject>
-      <foreignObject id=finish-edit class="editor hidden">
-        <div class=date-edit><div><input type=date></input></div><button class="codicon codicon-trash"></button></div>
-      </foreignObject>
-    </g>
-  </svg></div>
   <div id=tabs>
     <div class=tab-active>Tasks</div><div>Milestones</div><div>Holidays</div>
   </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js" integrity="sha512-M7nHCiNUOwFt6Us3r8alutZLm9qMt4s9951uo8jqO4UwJ1hziseL6O3ndFyigx6+LREfZqnhHxYjKRJ8ZQ69DQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="dates.js"></script>
 
 <!-- script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.js"
   integrity="sha512-NmSTfudjn1FCaFMQ+f4xveBmwRJn5ep8Wu+YOeq+CeExhFtKvwhfKVXFX3tGxoGWxu8Fl83qm9nE8/Hkc1dWZg=="
   crossorigin="anonymous" referrerpolicy="no-referrer"></script -->
 <script type=text/javascript>
-  const fmtDateAll = (a, p) => {
-    if (p) {
-      if (displayOptions.dateFormat == dateFormats.ABSOLUTE) {
-        return fmtDateP(a, p);
-      } else {
-        return fmtRelDateP;
-      }
-    }
-  }
-  const fmtDateP = (a, p) => {
-    const today = new Date();
-    if (a !== null) {
-      const o = {day: 'numeric', month:'short', year: undefined}
-      if (a.getFullYear() != today.getFullYear()) o.year = 'numeric'
-      return a.toLocaleDateString(undefined, o);
-    }
-    if (p.err) {
-      return p.err;
-    }
-    const [lb, ub] = p.map(p => new Date(p));
-    const ubo = {day: 'numeric', month:'short', year: undefined}
-    const lbo = {day: 'numeric', month:'short', year: undefined}
-    if (lb.getFullYear() != today.getFullYear()) lbo.year = 'numeric'
-    if (ub.getFullYear() != today.getFullYear()) ubo.year = 'numeric'
-    const lbs = lb.toLocaleDateString(undefined, lbo);
-    const ubs = ub.toLocaleDateString(undefined, ubo);
-    if (lb.getFullYear() == ub.getFullYear() &&
-        lb.getMonth() == ub.getMonth()) {
-      const ds = lb.toLocaleDateString(undefined, {day: 'numeric'});
-      const uds = ub.toLocaleDateString(undefined, {day: 'numeric'});
-      return lbs.replace(ds, `${ds} - ${uds}`);
-    }
-    return `${lbs} - ${ubs}`;
-  }
-  const relDateCmp = (today, target) => {
-    if (target.valueOf() < today.valueOf()) {
-      return {...relDateCmp(target, today), postfix:' ago'}
-    }
-    let diffYears = target.getFullYear() - today.getFullYear();
-    let diffMonths = target.getMonth() - today.getMonth();
-    let diffDays = target.getDate() - today.getDate();
-    if (diffDays < 0) {
-      diffDays += 31;
-      diffMonths--;
-    }
-    if (diffMonths < 0) {
-      diffYears--;
-      diffMonths += 12;
-    }
-    return {diffYears, diffMonths, diffDays, postfix: ''};
-  }
-  const relDateStrFmt = ({diffYears, diffMonths, diffDays, postfix}) => {
-    const components = [];
-    if (diffYears > 0) components.push(`${diffYears}y`);
-    if (diffMonths > 0) components.push(`${diffMonths}m`);
-    if (diffDays > 0) components.push(`${diffDays}d`);
-    if (components.length == 0) return "today";
-    return `${components.join(' ')}${postfix}`;
-  }
-  const relDateStr = (today, target) => {
-    return relDateStrFmt(relDateCmp(today, target));
-  }
-  const fmtRelRange = (today, lb, ub) => {
-    // Not leap year aware. Oh well.
-    const DAY = 1000 * 60 * 60 * 24;
-    const WEEK = DAY * 7;
-    const MONTH = 31 * DAY;
-    const YEAR = DAY * 365;
-
-    const lbd = Math.abs(today - lb);
-    const ubd = Math.abs(today - ub);
-    // The lower bound establishes the units we use for
-    // the diff.
-    if (lbd < WEEK) {
-      return `in ${Math.floor(lbd / DAY)}-${Math.floor(ubd / DAY)} days`
-    }
-    if (lbd < 5 * MONTH) {
-      return `in ${Math.floor(lbd / WEEK)}-${Math.floor(ubd / WEEK)} weeks`
-    }
-    if (lbd < YEAR) {
-      return `in ${(lbd / MONTH).toFixed(2)}-${(ubd / MONTH).toFixed(2)} months`;
-    }
-    return `in ${(lbd / YEAR).toFixed(2)}-${(ubd / YEAR).toFixed(2)} years`;
-  }
-  const fmtRelDateP = (a, p) => {
-    const today = new Date();
-    if (a !== null) {
-      return relDateStr(today, a);
-    }
-    if (p.err) {
-      return p.err;
-    }
-    const [lb, ub] = p;
-    return fmtRelRange(today.valueOf(), lb, ub);
-  }
 
   const view = {
     title: document.getElementById("title"),
@@ -619,12 +551,12 @@ limitations under the License.
       this.ub = ub;
       this.lb_unit = lb_unit;
       this.ub_unit = ub_unit;
-      const DAYS = 1000 * 60 * 60 * 24;
-      const WEEKS = DAYS * 7;
-      const MONTHS = WEEKS * 31;  // close enough
+      const DAYS = 1;
+      const WEEKS = DAYS * 5;
+      const MONTHS = WEEKS * 4;  // close enough
       const unit = {d: DAYS, w: WEEKS, m: MONTHS};
-      this.lb_ms = this.lb * unit[this.lb_unit];
-      this.ub_ms = this.ub * unit[this.ub_unit];
+      this.lb_days = this.lb * unit[this.lb_unit];
+      this.ub_days = this.ub * unit[this.ub_unit];
     }
     displayString() {
       if (this.lb_unit == this.ub_unit) {
@@ -713,7 +645,7 @@ limitations under the License.
           'Implement', 'Test', 'Get approval for', 'Send', 'Implement',
           'Review', 'Design', 'Approve', 'Qualify'])].concat(lorems(.5));
       const estimate = [rand(0, 12), rand(0, 12)];
-      estimate.sort(byValue);  // lexical sort is the default.
+      estimate.sort(byValue);  // stupid javascript
       const task = new Task(name.join(' '));
       task.estimate = new Estimate(estimate[0], 'd', estimate[1], 'd');
       tasks.push(task);
@@ -1035,14 +967,26 @@ limitations under the License.
   /* TODO:
      - Priorities:
       - adding links, reordering, milestones/launches, filtering, undo/redo
+       - For drawing links, create a toolbar item. When active, draws links.
+         - Use the Google material icon "Rebase Edit" from fonts.google.com/icons
        - ctrl-up, ctrl-down should reorder tasks (including fixing up dependencies)
        - reordering tasks by drag/drop
      - dragging on an unhighlighted row should highlight (a range of) rows.
        - dragging on a highlighted row should move tasks.
      - help panel with keyboard shortcuts
-     - fix the dates flopping between yesterday and today (probably a timezone issue?)
+       - https://stackoverflow.com/questions/46931103/making-a-dragbar-to-resize-divs-inside-css-grids
+       - rewrite chrome using grid
+       - show graphs in the panel
+         - end date distribution / cumulative
+         - hurricane plot
+         - tornado plot
      - workday-aware date addition
+       - edit holidays
        - common holidays
+       - this is actually a subset of a scheduling policy engine. If a task is pinned to a person,
+         it has to schedule on that person. If it's not, it'll schedule on whoever is available.
+         If two tasks are runnable on the same person, then try running them in parallel or in
+         either order and optimize for lowest cost ()
      - change the task expand/close
        - move the toggle to an explicit column so you can see it
        - allow more than one to be open
@@ -1051,6 +995,11 @@ limitations under the License.
        - should have an optional deadline, which will show on the graph where
          we're going to slip and by how much.
      - save
+       - It would be useful to support a few embeddings:
+         - as an AppsScript Sheets extension to allow editing any sheet with a DAG
+         - as a Google Drive App that can save its own data as a JSON blob
+         - as a Colab javascript editor that produces numpy array output
+         - as a VSCode editor that can save JSON or a text proto.
      - merge adjacent tasks
      - factor out table generation and management to a library that can be
        committed back to d3/contrib.
@@ -1079,6 +1028,7 @@ limitations under the License.
        - highlight row for unestimated tasks
      - filters
        - hide completed tasks
+         - Use "Remove Done" / "Done All" Material Icon
        - hide blocked tasks
        - hide unstarted tasks
        - unestimated only
@@ -1095,7 +1045,16 @@ limitations under the License.
        - resizable task column divider
        - tool for show/hide estimates, start/end dates
        - column for eng estimate vs calendar estimates
-     - replace row lines with a repeating background
+        - 'Add Task' material icon for adding a new task.
+        - Other useful ones:
+          - 'Reduce Capacity', 'Person Check', 'Calendar Month', 'Schedule', 'Event', 'Productivity'
+          - 'Calendar Today', 'Date Range', 'Calendar Clock'
+          - 'Event Busy' for remove date? Or 'Deadline'?
+          - 'Warning' - for rows missing estimates?
+          - 'Celebration' 'Stars' - for launches / milestones?
+          - 'Filter Alt', 'Timer', 'Monitoring', 'Assignment', 'Task', 'Checklist',
+          - 'Directions Run' for 'active time' or maybe 'Engineering'
+         - 'Folder Data'
      - task id column
      - task type column
        - filter: show only milestones
@@ -1125,6 +1084,42 @@ limitations under the License.
      - key journeys to think through:
        - portfolio view -- shows all the projects in this portfolio with end
          dates
+        - Dealing with multiple projects for a single team:
+          - Multiple projects running in parallel on the same engineers will impact each other's
+            timelines
+            - Option 1: for each task, define a "utilization" for engineering, add an optional
+              assignee to pin the task to a particular person (if not set, the simulation just picks
+              whoever is free). We adjust the end dates based on how much engineering time is
+              required and how much is available, on a per-scenario basis.
+              - this should affect the project even when the other projects are not viewable
+              - which means the projects have to belong to a team, to define the total number of
+                SWEs and the other competing projects
+              - the visualization is tricky -- we can in the details expando try to show how much
+                the delay is due to other projects and lack of utilization, and we could show a 
+                gantt chart for all projects on the team
+              - doesn't allow us to account for maintenance and overhead (how would you want to do this??)
+              - also doesn't account for scheduling choices we want to be able to make -- prioritizing
+                certain milestones at the expense of others (would we do this with a stack rank? could
+                set allocation -- eg, this project should never steal more than 20% of our effort?)
+              - if milestones have deadlines, we could optimize for hitting as many deadlines as
+                possible. If milestones had business value on delivery, and costs on missed deadlines,
+                then we could optimize for reducing costs and maximizing value delivery
+              - we should have levels of fidelity for representing eng availability
+                - eg: from just a rough "60-70% allocated to this team" all the way to a list of 
+                      available dates or non-available dates.
+                - it would be cool to figure out how to write a plugin architecture for this, so 
+                  teams could use stuff like Aloha-Y or plugging into oncall calendars to do it 
+                  automatically, or not!
+            - Option 2: separate eng tasks from waiting tasks, but otherwise do the thing above.
+            - Option 3: allow explicit ordering of tasks
+              - i suppose this could actually be done just as is -- all you have to do is add an
+                edge between two tasks to force an ordering. It's just a bit difficult to show this
+                from the perspective of a single project. (this looks like a foreign reference?)
+            - Will need some way to pause and defer projects en masse -- eg, we're stopping work on
+              some project while we finish something else. Or we've defined this project, but it's
+              not approved for development. Something like just ordering the backlog might achieve 
+              this, but it would be nice to say that we're just not planning to work on something
+              at all.
        - backlog -- shows all projects, shows project dependencies
          - (depending on a task in another project --- how to do it?)
            - from the simulation's POV, there's no such thing as a project --
@@ -1154,7 +1149,7 @@ limitations under the License.
            customers, but we could be asking them for more information on the
            impact that we're enabling.
    */
-  const tasks = randomTasks(3);
+  const tasks = randomTasks(300);
   const G = randomGraph(tasks);
 
   const N = tasks.length;
@@ -1357,7 +1352,9 @@ limitations under the License.
           .on("keydown", e => this.handleKeydown(e, true, false));
     }
     value() {
-      return this.input.node().valueAsDate;
+      const utc = this.input.node().valueAsDate;
+      return new Date(utc.getUTCFullYear(), utc.getUTCMonth(),
+          utc.getUTCDate());
     }
     setValue(value) {
       if (value === null) {
@@ -1877,51 +1874,18 @@ limitations under the License.
       .selectAll("g.row").data(g.topo, t => t.id)
       .join("g").classed("row", true)
       .attr("transform", t => `translate(0 ${rowy.get(t)})`)
-      .call(d3.drag()
-          // .container(rowsGroup)
-          .on("start", function (e, d) {
-            if (!selectedTasks.has(d)) {
-              selectedTasks.add(d);
-              e.on('drag', function (event, d) {
-                console.log(event);
-              });
-            } else {
-              // TODO: if the row is "selected", then initiate "drag to highlight"
-              // TODO: drag all the selected rows, not just the one that got
-              // clicked.
-              const row = d3.select(this).classed('dragging', true);
-              const offset = e.y - rowy.get(d);
-              // TODO: create an "insertion cursor" - a bold line
-              // TODO: find the movement range --- the last dependsOn (edge)
-              //       and the first requiredBy (invEdge)
-              //       and draw a little box so the user isn't confused why their
-              //       drag is sticking
-              const dragged = (event, d) => {
-                // TODO: find the row under the event.
-                // If the pointer is in the lower half, the insertion is
-                // at the bottom, and the drop would land the node after
-                // the row under the event.
-                // Opposite for if the pointer is in the upper half.
-                row.attr('transform', `translate(0, ${event.y - offset})`);
-              }
-              const ended = () => {
-                row.classed('dragging', false);
-              }
-              e.on('drag', dragged).on('end', ended);
-            }
-          }))
-      .on("click", (e, t) => {
-        if (e.ctrlKey) {
-          selectedTasks.add(t);
-        } else if (e.shiftKey) {
-          selectedTasks.addRange(t);
-        } else {
-          selectedTasks.set(t);
-        }
-      })
-      .call(s => ret.updateSelection = () =>
-          s.classed('selected', t => selectedTasks.has(t))
-           .classed('active', t => selectedTasks.isActive(t)))
+        .on("click", (e, t) => {
+          if (e.ctrlKey) {
+            selectedTasks.add(t);
+          } else if (e.shiftKey) {
+            selectedTasks.addRange(t);
+          } else {
+            selectedTasks.set(t);
+          }
+        })
+        .call(s => ret.updateSelection = () =>
+            s.classed('selected', t => selectedTasks.has(t))
+             .classed('active', t => selectedTasks.isActive(t)))
       .call(onY(s => s.attr("transform", t => `translate(0 ${rowy.get(t)})`)));
     child(rows, 'rect', 'row-rect')
         .attr("x", 0).attr("y", 0).attr("width", WIDTH).attr("height", t => rowh.get(t))
@@ -2066,8 +2030,8 @@ limitations under the License.
       const u1 = 1 - Math.random();
       const u2 = Math.random();
       const mag = sigma * Math.sqrt(-2 * Math.log(u1));
-      a[i] = Math.max(0, mag * Math.cos(2 * Math.PI  * u2) + mean);
-      a[i + 1] = Math.max(0, mag * Math.sin(2 * Math.PI * u2) + mean);
+      a[i] = Math.max(0, Math.floor(mag * Math.cos(2 * Math.PI  * u2) + mean));
+      a[i + 1] = Math.max(0, Math.floor(mag * Math.sin(2 * Math.PI * u2) + mean));
     }
     return a;
   }
@@ -2126,34 +2090,51 @@ limitations under the License.
   const durations = new Map();
   const startDates = new Map();
   const endDates = new Map();
-  const today = new Date();
-  const two_weeks = new Date();
-  two_weeks.setDate(two_weeks.getDate() + 14);
-  const defaultStart = np_rand_norm90(today.valueOf(), two_weeks.valueOf());
-  const doEst = t => {
-    if (t.estimate !== null) {
-      return np_rand_norm90(t.estimate.lb_ms, t.estimate.ub_ms);
-    }
-    return { err: `No estimate for ${t.id}` };
-  }
-
   const calculateDates = () => {
+    const makeWorkday = () => {
+      const today = new Date();
+      const two_weeks = new Date();
+      two_weeks.setDate(two_weeks.getDate() + 14);
+      const id = t => t;
+      const earliest = new Date(Math.min(today.valueOf(),
+        ...g.topo.map(t => t.started).filter(id).map(d => d.valueOf()),
+        ...g.topo.map(t => t.finished).filter(id).map(d => d.valueOf())));
+      return new Workday(earliest, []);
+    }
+    const w = makeWorkday();
+    const today = w.today();
+    const defaultStart = np_rand_norm90(today, 10);
+    startDateP.clear();
+    endDateP.clear();
+    const doEst = t => {
+      if (t.estimate !== null) {
+        return np_rand_norm90(t.estimate.lb_days, t.estimate.ub_days);
+      }
+      return { err: `No estimate for ${t.id}` };
+    }
     g.topo.filter(t => t.finished === null)
       .forEach(t => durations.set(t, doEst(t)));
 
+    const toDates = days => {
+      if (days.err) return days;
+      return np_percentile90(days).map(wd => w.date(wd));
+    }
+
     g.topo.forEach(t => {
       const parents = g.edges(t);
-      const start = t.started !== null ? t.started.valueOf() :
+      const start = t.started !== null ? w.workDay(t.started) :
           parents.length == 0 ? defaultStart :
           np_max(parents.map(p => endDates.get(p)).concat([defaultStart]));
       startDates.set(t, start);
-      startDateP.set(t, np_percentile90(start));
-      const end = t.finished !== null ? t.finished.valueOf() :
+      startDateP.set(t, toDates(start));
+      const end = t.finished !== null ? w.workDay(t.finished) :
           np_add([start, durations.get(t)]);
       endDates.set(t, end);
-      endDateP.set(t, np_percentile90(end));
+      endDateP.set(t, toDates(end));
     });
     view.rows.displayDates();
   }
   setTimeout(calculateDates, 0);
+
+
 </script>
