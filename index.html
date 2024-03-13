@@ -82,25 +82,6 @@ limitations under the License.
       white-space: nowrap;
       user-select: none;
     }
-    #content-area {
-      flex: 1;
-      display: flex;
-      flex-direction: row;
-      width: 100%;
-      max-width: 100%;
-    }
-    #content-panel {
-      max-width: 100%;
-      min-width: 20%;
-      display: flex;
-      flex-direction: column;
-    }
-    #side-panel {
-      flex: 1;
-      min-width: 10em;
-      padding: 2px;
-      box-shadow: 2px 2px 5px #666;
-    }
     #content {
       flex-grow: 1;
       overflow: scroll;
@@ -337,64 +318,56 @@ limitations under the License.
     </div>
     <input type=search>
   </div>
-  <div id=content-area>
-    <div id=content-panel>
-      <div id=column-headers-wrapper>
-        <svg id=column-headers height=24 width=100 viewBox="0 0 24 100"></svg>
-      </div>
-      <div id=content><svg id=grid>
-        <defs>
-          <symbol id="blocked" refX="0" refY="0" width="24" height="24"
-                  viewBox="0 0 24 24">
-          <rect x="5" y="5" width="14" height="14"
-                stroke="grey" stroke-width="1" fill="rgba(68,71,70,.15)"></rect>
-          </symbol>
-          <symbol id="finished" refX="0" refY="0" width="24" height="24"
-                  viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14"
-                  stroke="black" stroke-width="1" fill="white"></rect>
-            <line fill="none" stroke="black" x1="5" y1="5" x2="19" y2="19"></line>
-            <line fill="none" stroke="black" x2="5" y1="5" x1="19" y2="19"></line>
-          </symbol>
-          <symbol id="ready" refX="0" refY="0" width="24" height="24"
-                  viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14"
-                  stroke="black" stroke-width="1" fill="white"></rect>
-          </symbol>
-          <symbol id="started" refX="0" refY="0" width="24" height="24"
-                  viewBox="0 0 24 24">
-            <rect x="5" y="5" width="14" height="14" stroke="black"
-                  stroke-width="1" fill="white"></rect>
-            <line fill="none" stroke="black" x2="5" y1="5" x1="19" y2="19"></line>
-          </symbol>
-        </defs>
-        <g id=data-content></g>
-        <g id=grid-controls>
-          <foreignObject id=name-edit class="editor hidden">
-            <input type=text id=inline-edit></input>
-          </foreignObject>
-          <foreignObject id=name-edit-help class="edit-help hidden">
-            <div>Ret: Accept<br>Ctrl+ret: new task</div>
-          </foreignObject>
-          <foreignObject id=est-edit class="editor hidden">
-          <div><div id=est-edit-inner><input type=text id=est-edit-input></input><button
-            id=est-edit-clear class="codicon codicon-trash" title="Remove estimate"></div></div></div>
-          </foreignObject>
-          <foreignObject id=est-edit-help class="edit-help hidden">
-            <div style="width: 100%">Like '1-2d' or '1d - 2w'</div>
-          </foreignObject>
-          <foreignObject id=start-edit class="editor hidden">
-            <div class=date-edit><div><input type=date></input></div><button class="codicon codicon-trash"></button></div>
-          </foreignObject>
-          <foreignObject id=finish-edit class="editor hidden">
-            <div class=date-edit><div><input type=date></input></div><button class="codicon codicon-trash"></button></div>
-          </foreignObject>
-        </g>
-      </svg></div>
-    </div>
-    <div id=side-panel>
-      <div>blah blah blah</div>
-      <div>blah blah blah</div>
-    </div>
+  <div id=column-headers-wrapper>
+    <svg id=column-headers height=24 width=100 viewBox="0 0 24 100"></svg>
   </div>
+  <div id=content><svg id=grid>
+    <defs>
+      <symbol id="blocked" refX="0" refY="0" width="24" height="24"
+              viewBox="0 0 24 24">
+      <rect x="5" y="5" width="14" height="14"
+            stroke="grey" stroke-width="1" fill="rgba(68,71,70,.15)"></rect>
+      </symbol>
+      <symbol id="finished" refX="0" refY="0" width="24" height="24"
+              viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14"
+              stroke="black" stroke-width="1" fill="white"></rect>
+        <line fill="none" stroke="black" x1="5" y1="5" x2="19" y2="19"></line>
+        <line fill="none" stroke="black" x2="5" y1="5" x1="19" y2="19"></line>
+      </symbol>
+      <symbol id="ready" refX="0" refY="0" width="24" height="24"
+              viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14"
+              stroke="black" stroke-width="1" fill="white"></rect>
+      </symbol>
+      <symbol id="started" refX="0" refY="0" width="24" height="24"
+              viewBox="0 0 24 24">
+        <rect x="5" y="5" width="14" height="14" stroke="black"
+              stroke-width="1" fill="white"></rect>
+        <line fill="none" stroke="black" x2="5" y1="5" x1="19" y2="19"></line>
+      </symbol>
+    </defs>
+    <g id=data-content></g>
+    <g id=grid-controls>
+      <foreignObject id=name-edit class="editor hidden">
+        <input type=text id=inline-edit></input>
+      </foreignObject>
+      <foreignObject id=name-edit-help class="edit-help hidden">
+        <div>Ret: Accept<br>Ctrl+ret: new task</div>
+      </foreignObject>
+      <foreignObject id=est-edit class="editor hidden">
+      <div><div id=est-edit-inner><input type=text id=est-edit-input></input><button
+        id=est-edit-clear class="codicon codicon-trash" title="Remove estimate"></div></div></div>
+      </foreignObject>
+      <foreignObject id=est-edit-help class="edit-help hidden">
+        <div style="width: 100%">Like '1-2d' or '1d - 2w'</div>
+      </foreignObject>
+      <foreignObject id=start-edit class="editor hidden">
+        <div class=date-edit><div><input type=date></input></div><button class="codicon codicon-trash"></button></div>
+      </foreignObject>
+      <foreignObject id=finish-edit class="editor hidden">
+        <div class=date-edit><div><input type=date></input></div><button class="codicon codicon-trash"></button></div>
+      </foreignObject>
+    </g>
+  </svg></div>
   <div id=tabs>
     <div class=tab-active>Tasks</div><div>Milestones</div><div>Holidays</div>
   </div>
@@ -974,12 +947,6 @@ limitations under the License.
      - dragging on an unhighlighted row should highlight (a range of) rows.
        - dragging on a highlighted row should move tasks.
      - help panel with keyboard shortcuts
-       - https://stackoverflow.com/questions/46931103/making-a-dragbar-to-resize-divs-inside-css-grids
-       - rewrite chrome using grid
-       - show graphs in the panel
-         - end date distribution / cumulative
-         - hurricane plot
-         - tornado plot
      - workday-aware date addition
        - edit holidays
        - common holidays
@@ -1149,7 +1116,7 @@ limitations under the License.
            customers, but we could be asking them for more information on the
            impact that we're enabling.
    */
-  const tasks = randomTasks(300);
+  const tasks = randomTasks(100);
   const G = randomGraph(tasks);
 
   const N = tasks.length;
