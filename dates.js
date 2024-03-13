@@ -227,7 +227,11 @@ if (typeof window === 'undefined') {
   Tests.run();
 }
 
-const fmtDateAll = (a, p) => {
+const dateFormats = {
+  ABSOLUTE: 'abs',
+  RELATIVE: 'rel'
+}
+const fmtDateAll = (displayOptions, a, p) => {
   if (p) {
     if (displayOptions.dateFormat == dateFormats.ABSOLUTE) {
       return fmtDateP(a, p);
