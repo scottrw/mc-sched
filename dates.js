@@ -96,6 +96,11 @@ class Workday {
     }
   }
   date(workday) {
+    if (typeof workday !== 'number') {
+      console.log(workday);
+      console.trace();
+      throw 'wtf';
+    }
     if (workday >= 0) {
       if (this.forward.length > workday) {
         return this.forward[workday];
@@ -250,7 +255,7 @@ const fmtDateP = (a, p) => {
   if (p.err) {
     return p.err;
   }
-  const [lb, ub] = p.map(p => new Date(p));
+  const [lb, _, ub] = p.map(p => new Date(p));
   const ubo = {day: 'numeric', month:'short', year: undefined}
   const lbo = {day: 'numeric', month:'short', year: undefined}
   if (lb.getFullYear() != today.getFullYear()) lbo.year = 'numeric'
@@ -323,6 +328,6 @@ const fmtRelDateP = (a, p) => {
   if (p.err) {
     return p.err;
   }
-  const [lb, ub] = p;
+  const [lb, _, ub] = p;
   return fmtRelRange(today.valueOf(), lb, ub);
 }

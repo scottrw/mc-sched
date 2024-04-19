@@ -27,18 +27,22 @@ limitations under the License.
       margin: 0;
       background-color: var(--chrome-background-color);
       display: grid;
-      grid-template-rows: min-content min-content auto min-content;
+      grid-template-rows: min-content auto min-content;
       position: absolute;
       top: 0;
       bottom: 0;
       left: 0;
       right: 0;
+      overflow: hidden;
     }
     svg text, svg input {
       cursor: default; user-select: none;
       font-family: Roboto, Google Sans, Arial, sans-serif;
       font-size: 14px;
       dominant-baseline: central;
+    }
+    svg .tick text {
+      font-size: 8px;
     }
     #chrome { display: flex; padding: 6px; height: 48px; }
     #chrome svg { padding: 8px; }
@@ -56,6 +60,16 @@ limitations under the License.
     #dag-view {
       min-height: 0;
       display: grid;
+    }
+    #milestones, #holidays {
+      display: none;
+      min-height: 0;
+      overflow: scroll;
+    }
+    #milestones-svg {
+      background-color: white;
+      margin: 10px;
+      border-radius: 4px;
     }
     #tabs {
       border-top: 1px solid #e3e3e3;
@@ -80,93 +94,6 @@ limitations under the License.
     #logo .left-side { fill: black; opacity: 40% }
     #logo .right-side { fill: black; opacity: 20% }
     #logo .pip { fill: black; opacity: 50% }
-    #toolbar-wrapper {
-      background-color: #edf2fa;
-      border-radius: 10px;
-      margin: 3px;
-      padding: 3px;
-      user-select: none;
-      font-size: 16px;
-    }
-    #toolbar-wrapper input {
-      font-size: 16px;
-    }
-    #toolbar-wrapper div {
-      display: inline-block;
-      user-select: none;
-      cursor: default;
-    }
-    #toolbar-wrapper .tool {
-      border-radius: 5px;
-      margin: 2px;
-      padding-inline: 6px;
-      padding-block: 2px;
-    }
-    #toolbar-wrapper .tool.requires-selection {
-      color: rgba(68,71,70,.18);
-    }
-    .tasks-selected #toolbar-wrapper .tool.requires-selection {
-      color: inherit;
-    }
-    #toolbar-wrapper .tool:hover, .tasks-selected #toolbar-wrapper .tool.requires-selection:hover {
-      background-color: rgba(68,71,70,.08);
-    }
-    #toolbar-wrapper .tool.requires-selection:hover {
-      background-color: inherit;
-    }
-    #toolbar-wrapper .tool:active, .tasks-selected #toolbar-wrapper .tool.requires-selection:active {
-      background-color: rgba(68,71,70,.25);
-    }
-    #toolbar-wrapper .tool.requires-selection:active {
-      background-color: inherit;
-    }
-    #toolbar-wrapper .tool.requires-multiple-selection {
-      color: rgba(68,71,70,.18);
-    }
-    .multiple-tasks-selected #toolbar-wrapper .tool.requires-multiple-selection {
-      color: inherit;
-    }
-    #toolbar-wrapper .tool:hover, .multiple-tasks-selected #toolbar-wrapper .tool.requires-multiple-selection:hover {
-      background-color: rgba(68,71,70,.08);
-    }
-    #toolbar-wrapper .tool.requires-multiple-selection:hover {
-      background-color: inherit;
-    }
-    #toolbar-wrapper .tool:active, .multiple-tasks-selected #toolbar-wrapper .tool.requires-multiple-selection:active {
-      background-color: rgba(68,71,70,.25);
-    }
-    #toolbar-wrapper .tool.requires-multiple-selection:active {
-      background-color: inherit;
-    }
-    #toolbar-wrapper .tool.selected {
-      background-color: rgba(68,71,70,.15);
-    }
-    #toolbar-wrapper .tool.selected:hover {
-      background-color: rgba(68,71,70,.25);
-    }
-    #toolbar-wrapper .tool.selected:active {
-      background-color: rgba(68,71,70,.35);
-    }
-    #toolbar-wrapper .divider {
-      background: rgba(68,71,70,.5);
-      border-radius: 0px;
-      margin: 6px;
-      width: 1px;
-    }
-    #toolbar-wrapper .icon {
-      margin: 6px;
-      padding-block: 2px;
-    }
-    #toolbar-wrapper input {
-      outline: none;
-      border: none;
-      border-radius: 6px;
-      margin: 6px;
-      margin-left: 0px;
-      padding-inline: 6px;
-      padding-block: 2px;
-      width: 160px;
-    }
   </style>
   <link rel="stylesheet" type="text/css"
     href="https://microsoft.github.io/vscode-codicons/dist/codicon.css">
@@ -198,20 +125,13 @@ limitations under the License.
       </ul>
     </div>
   </div>
-  <div id=toolbar-wrapper>
-    <div class=icon>
-      <svg width=18 height=18 viewBox="0 0 18 18">
-        <line x1=40% y1=40% x2=18 y2=18 stroke=black stroke-width=2></line>
-        <circle cx=45% cy=45% r=30% fill=white stroke=black
-                stroke-width=2></circle>
-      </svg>
-    </div>
-    <input type=search>
-  </div>
   <div id=dag-view></div>
-  <div id=tabs>
-    <div class=tab-active>Tasks</div><div>Milestones</div><div>Holidays</div>
-  </div>
+  <div id=milestones><svg id=milestones-svg width=1024 height=1024 viewBox="0 0 1024 1024"></svg></div>
+  <div id=holidays></div>
+  <div id=tabs><div
+    class=tab-active id=tasks-tab>Tasks</div><div
+    id=milestones-tab>Milestones</div><div
+    id=holidays-tab>Holidays</div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js" integrity="sha512-M7nHCiNUOwFt6Us3r8alutZLm9qMt4s9951uo8jqO4UwJ1hziseL6O3ndFyigx6+LREfZqnhHxYjKRJ8ZQ69DQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="dates.js"></script>
 
@@ -219,6 +139,29 @@ limitations under the License.
   integrity="sha512-NmSTfudjn1FCaFMQ+f4xveBmwRJn5ep8Wu+YOeq+CeExhFtKvwhfKVXFX3tGxoGWxu8Fl83qm9nE8/Hkc1dWZg=="
   crossorigin="anonymous" referrerpolicy="no-referrer"></script -->
 <script type=text/javascript>
+  const loc = {
+    url_: new URL(document.location.hash.slice(1), document.location),
+    listeners_: [],
+    onRoute: function(cb) {
+      this.listeners_.push(cb);
+      if (this.url_.pathname == '/index.html') {
+        return cb('/tasks');
+      }
+      return cb(this.url_.pathname);
+    },
+    setRoute: function(route) {
+      this.url_.pathname = route;
+      this.listeners_.forEach(cb => cb(route));
+    },
+    setHash: function(route) {
+      window.location.hash = `#${route}`;
+    }
+  };
+  window.addEventListener('hashchange', e => {
+    console.log('hash change', e);
+    loc.setRoute(new URL(e.newURL).hash.slice(1));
+  });
+
   fetch('dag-view.html').then(r => {
     if (!r.ok) { throw 'wtf'; }
     return r.text();
@@ -243,6 +186,40 @@ limitations under the License.
     const model = {
       title: view.title.value
     };
+    {
+      // TODO: on clicking tab, update window.location
+      // TODO: on window.location change, update tab styling and view visibility
+      // TODO: rename all these elements so we can use convention over configuration
+      const tabs = [['/tasks', 'tasks-tab', 'dag-view'],
+                    ['/milestones', 'milestones-tab', 'milestones'],
+                    ['/holidays', 'holidays-tab', 'holidays']]
+        .map(([route, ...ids]) => [route, ...ids.map(id => d3.select(`#${id}`))]);
+      const buttons = tabs.map(([route, tab, view]) => tab);
+      const views = tabs.map(([route, tab, view]) => view);
+      buttons.forEach(b => b.classed('tab-active', false));
+      views.forEach(v => v.style('display', 'none'));
+      tabs.forEach(([route, tab, view]) => {
+        tab.on('click', () => loc.setHash(route));
+      });
+      loc.onRoute(currentRoute => {
+        tabs.forEach(([route, tab, view]) => {
+          if (currentRoute == route) {
+            tab.classed('tab-active', true);
+            view.style('display', 'grid');
+          } else {
+            tab.classed('tab-active', false);
+            view.style('display', 'none');
+          }
+        });
+      });
+    }
+    d3.select(shadow).select("#star").append("path")
+        .attr("d", d3.symbol(d3.symbolStar).size(32));
+    d3.select(shadow).select("#grabber").on("click", function () {
+      shadow.getElementById("container").classList.toggle("details-open");
+      this.classList.toggle("codicon-chevron-left");
+      this.classList.toggle("codicon-chevron-right");
+    });
     const setTitle = (title) => {
       view.title.innerHTML = title;
       if (title != model.title) {
@@ -284,7 +261,7 @@ limitations under the License.
     }
 
     const makeTools = () => {
-      const container = d3.select("#toolbar-wrapper");
+      const container = d3.select(shadow).select("#toolbar-wrapper");
       const divider = () => container.append("div").classed("divider", true).html("&nbsp;");
       const actionButton = (min, title, help, shortcut, action) => {
         const cls = min == 1 ? 'requires-selection' : 'requires-multiple-selection';
@@ -404,12 +381,15 @@ limitations under the License.
 
     class Task {
       static count = 0;  // TODO: replace with Firebase IDs
-      constructor(name) {
+      static TYPE_TASK = 't';
+      static TYPE_MILESTONE = 'm';
+      constructor(name, type=undefined) {
         this.id = Task.count++;
         this.name = name;
         this.estimate = null;
         this.started = null;
         this.finished = null;
+        this.type = type || Task.TYPE_TASK;
       }
       displayEstimate() {
         if (this.estimate !== null) {
@@ -526,10 +506,16 @@ limitations under the License.
             t.finished.setDate(t.finished.getDate() + 1);
           }
         }
+        if (Math.random() < .05) {
+          t.type = Task.TYPE_MILESTONE;
+        }
         if (Math.random() < .95) {
           tips.push(t);
+        } else {
+          t.type = Task.TYPE_MILESTONE;
         }
       });
+      tips.forEach(t => t.type = Task.TYPE_MILESTONE);
 
       return {
         V: new Map(tasks.map(t => [t.id, t])),
@@ -786,7 +772,17 @@ limitations under the License.
     }
 
     /* TODO:
+       - Calculate width of start / end date strings, then relayout Xs.
        - Priorities:
+        - milestones & deadlines
+          - show a tab that looks like the timeline view from the ops review
+            - start date: today, beginning of quarter, beginning of year,
+                          beginning of project
+            - end date: end of current quarter, end of current year,
+                        end of project.
+            - today: as a cursor covering the whole canvas
+            - deadlines: as stars on the timeline
+            - milestones: completed ones get the launch emoji
         - adding links, reordering, milestones/launches, filtering, undo/redo
          - For drawing links, create a toolbar item. When active, draws links.
            - Use the Google material icon "Rebase Edit" from fonts.google.com/icons
@@ -795,6 +791,18 @@ limitations under the License.
        - dragging on an unhighlighted row should highlight (a range of) rows.
          - dragging on a highlighted row should move tasks.
        - help panel with keyboard shortcuts
+       - completion graphs
+         - deal with deadlines
+         - relative dates
+         - add holidays to graph
+         - show value on mouse hover
+         - 's-g' to show graphs
+         - 's-s' to show start dates
+         - 's-f' to show finish dates
+         - 's-d' to show deadline dates
+         - 's-e' to show estimates
+         - 's-c' to show completed tasks
+         - 's-c' to show completed tasks
        - workday-aware date addition
          - edit holidays
          - common holidays
@@ -1053,7 +1061,7 @@ limitations under the License.
         } else if (e.key == 'Enter') {
           this.accept();
           this.dismiss();
-          if (e.ctrlKey || e.altKey)
+          if (e.ctrlKey || e.altKey || e.metaKey)
             selectedTasks.createTask({before: e.shiftKey, branch: e.altKey});
         } else if (e.key == 'Tab') {
           if (e.shiftKey && !hasPrevControl ||
@@ -1260,6 +1268,70 @@ limitations under the License.
       view.rows.updateDotRadii();
       view.rows.updateExpanded();
     }
+    const workdays = new Workday(new Date(), []);
+    const completionDate = {
+      _svg: d3.select(shadow).select("#completion-date").append("g")
+          .attr("transform", "translate(25, 2)"),
+      _err: d3.select(shadow).select("#completion-date-error"),
+      _sec: d3.select(shadow).select('#completion-date-section'),
+      _finished: d3.select(shadow).select('#completion-date-finished'),
+      _axisBottom: undefined,
+      _task: undefined,
+      update: function(task) {
+        this._task = task;
+        const d = endDates.get(task);
+        this._sec.classed('error', d.err);
+        if (d.err) {
+          this._err.text(d.err);
+          return;
+        }
+        this._sec.classed('finished', !Array.isArray(d));
+        if (!Array.isArray(d)) {
+          this._finished.text(workdays.date(d).toLocaleDateString(undefined, {dateStyle: 'full'}));
+          return;
+        }
+        const s = d.toSorted(byValue).map(d => workdays.date(d));
+        const ptiles = [50, 500, 950].map(i => s[i]);
+        const x = d3.scaleTime()
+            .domain(d3.extent(s))
+            .range([0, 150]);
+        this._axisBottom = this._axisBottom ? this._axisBottom :
+            this._svg.append("g").attr("transform", `translate(0, 150)`);
+        this._axisBottom
+            .call(d3.axisBottom(x).ticks(3)
+                .tickValues(ptiles)
+                .tickFormat(d3.timeFormat('%b %d'))
+                .tickSize(-150))
+            .selectAll("text")
+            .style("text-anchor", "end")
+            .attr("dx", "-.8em")
+            .attr("dy", ".15em")
+            .attr("transform", "rotate(-65)")
+            .style("font-size", "10px");
+        const y = d3.scaleLinear()
+            .domain([0, s.length])
+            .range([150, 0]);
+        this._axisLeft = this._axisLeft ? this._axisLeft : this._svg.append("g");
+        this._axisLeft.call(
+            d3.axisLeft(y).tickValues([50, 500, 950])
+            .tickSize(-150)
+            .tickFormat(d => (d / 10).toFixed(0) + '%'))
+            .selectAll("text")
+            .style("font-size", "10px");
+        this._path = this._path ? this._path : this._svg.append("path");
+        this._path.datum(s)
+            .attr("fill", "none")
+            .attr("stroke", "steelblue")
+            .attr("stroke-width", "1.5")
+            .attr("d", d3.line().x(d => x(d)).y((d, i) => y(i)));
+        this._svg.selectAll(".tick line").attr("opacity", 0.25);
+      },
+      recalculate: function() {
+        if (this._task) {
+          this.update(this._task);
+        }
+      }
+    };
     const selectedTasks = {
       _tasks: new Set(),
       _last_task: undefined,
@@ -1274,6 +1346,21 @@ limitations under the License.
         } else {
           document.body.classList.remove('multiple-tasks-selected');
         }
+        window.setTimeout(() => {
+          if (this._last_task) {
+            completionDate.update(this._last_task);
+          }
+        }, 0);
+      },
+      setTypeTask: function() {
+        this._tasks.forEach(t => t.type = Task.TYPE_TASK);
+        recreateRows();
+        window.setTimeout(calculateDates, 0);
+      },
+      setTypeMilestone: function() {
+        this._tasks.forEach(t => t.type = Task.TYPE_MILESTONE);
+        recreateRows();
+        window.setTimeout(calculateDates, 0);
       },
       del: function ({healEdges}) {
         const lastTask = this._orderedTasks().pop();
@@ -1456,6 +1543,8 @@ limitations under the License.
         });
       }
     };
+    window.selectedTasks = selectedTasks;
+    console.log("Exporting selectedTasks", selectedTasks);
 
     d3.select(document.body)
       .on('keydown', e => {
@@ -1466,7 +1555,7 @@ limitations under the License.
           selectedTasks.clear();
         }
         if (e.key == 'Enter') {
-          if (e.ctrlKey || e.altKey) {
+          if (e.ctrlKey || e.altKey || e.metaKey) {
             selectedTasks.createTask({before: e.shiftKey, branch: e.altKey})
           } else {
             selectedTasks.edit();
@@ -1482,7 +1571,7 @@ limitations under the License.
           selectedTasks.removeDeps();
         }
         if (e.key == 'ArrowDown' || e.key == 'j' || e.key == 'J') {
-          if (e.ctrlKey) {
+          if (e.ctrlKey || e.metaKey) {
             selectedTasks.shiftDown();
           } else if (e.shiftKey) {
             selectedTasks.growDown();
@@ -1492,7 +1581,7 @@ limitations under the License.
           e.preventDefault();
         }
         if (e.key == 'ArrowUp' || e.key == 'k' || e.key == 'K') {
-          if (e.ctrlKey) {
+          if (e.ctrlKey || e.metaKey) {
             selectedTasks.shiftUp();
           } else if (e.shiftKey) {
             selectedTasks.growUp();
@@ -1504,6 +1593,12 @@ limitations under the License.
         if (e.key == ' ') {
           selectedTasks.toggleStatus();
           e.preventDefault();
+        }
+        if (e.key == 't') {
+          selectedTasks.setTypeTask();
+        }
+        if (e.key == 'm') {
+          selectedTasks.setTypeMilestone();
         }
       });
     const layoutX = () => {
@@ -1616,9 +1711,9 @@ limitations under the License.
       _hdr('status', '', LANESKIP, null, null);
       _hdr('name', 'Task name', FONTSIZE * 20, nameEdit, t => t.name);
       _hdr('est', 'Est', FONTSIZE * 5, estEdit, t => t.displayEstimate());
-      _hdr('start', 'Start', FONTSIZE * 14, startEdit,
+      _hdr('start', 'Start', FONTSIZE * 10, startEdit,
           t => fmtDateAll(displayOptions, t.started, startDateP.get(t)));
-      _hdr('end', 'End', FONTSIZE * 14, finishEdit,
+      _hdr('end', 'End', FONTSIZE * 10, finishEdit,
           t => fmtDateAll(displayOptions, t.finished, endDateP.get(t)));
       d3.select(shadow).select("#column-headers")
         .attr("width", WIDTH)
@@ -1633,14 +1728,16 @@ limitations under the License.
     layoutX();
 
     const path = (e, s) => {
-      const sx = dotx.get(s);
-      const ex = dotx.get(e);
-      const sy = doty.get(s);
-      const ey = doty.get(e);
-      const sr = expandedTasks.has(s) ? RADIUS * 2 : RADIUS;
-      const er = expandedTasks.has(e) ? RADIUS * 2 : RADIUS;
-      const syo = expandedTasks.has(s) ? YSKIP - 2 * RADIUS : 0;
-      const eyo = expandedTasks.has(s) ? YSKIP - 2 * RADIUS : 0;
+      let sx = dotx.get(s);
+      let ex = dotx.get(e);
+      let sy = doty.get(s);
+      if (s.type == Task.TYPE_MILESTONE) sy += 2;
+      let ey = doty.get(e);
+      if (e.type == Task.TYPE_MILESTONE) ey -= 3;
+      let sr = expandedTasks.has(s) ? RADIUS * 2 : RADIUS;
+      let er = expandedTasks.has(e) ? RADIUS * 2 : RADIUS;
+      let syo = expandedTasks.has(s) ? YSKIP - 2 * RADIUS : 0;
+      let eyo = expandedTasks.has(s) ? YSKIP - 2 * RADIUS : 0;
       if (sx == ex) {
         return `M ${sx} ${sy + sr} V ${ey - er}`;
       } else {
@@ -1673,24 +1770,28 @@ limitations under the License.
         if (Array.isArray(cls)) {
           classes = cls.map(c => '.' + c).join('');
           return s.selectAll(`${element}${classes}`)
-              .data(d => [d]).join(element).classed(cls.join(' '), true);
+              .data(d => [d], d => d.id).join(element).classed(cls.join(' '), true);
         }
         if (cls) {
           return s.selectAll(`${element}.${cls}`)
-              .data(d => [d]).join(element).classed(cls, true);
+              .data(d => [d], d => d.id).join(element).classed(cls, true);
         }
-        return s.selectAll(element).data(d => [d]).join(element);
+        return s.selectAll(element).data(d => [d], d => d.id).join(element);
       }
       const ret = {};
       const onY = cb => s => {
         _updateYs.push(() => cb(s));
+      }
+      const _dotRadii = [];
+      const onDotRadii = cb => s => {
+        _dotRadii.push(() => cb(s));
       }
       const rows = rowsGroup
         .selectAll("g.row").data(g.topo, t => t.id)
         .join("g").classed("row", true)
         .attr("transform", t => `translate(0 ${rowy.get(t)})`)
           .on("click", (e, t) => {
-            if (e.ctrlKey) {
+            if (e.ctrlKey || e.metaKey) {
               selectedTasks.add(t);
             } else if (e.shiftKey) {
               selectedTasks.addRange(t);
@@ -1711,21 +1812,28 @@ limitations under the License.
         .call(onY(g => g
               .attr("y1", t => rowh.get(t)).attr("y2", t => rowh.get(t))));
 
-      child(rows, 'g', 'circles')
+      const circles = child(rows, 'g', 'circles')
           .on("click", (e, t) => { setHilite(t); return e; })
           .call(gs => child(gs, 'rect', 'grid-rect')
             .attr("x", 0).attr("y", 1).attr("width", view.allHeaders[0].width)
-            .call(onY(r => r.attr("height", t => rowh.get(t) - 2))))
+            .call(onY(r => r.attr("height", t => rowh.get(t) - 2))));
+      circles.filter(t => t.type != Task.TYPE_TASK)
+          .call(gs => child(gs, "use", "task-star")
+              .attr("href", "#star")
+              .call(onDotRadii(s =>
+                s.attr("transform", t => `translate(${dotx.get(t) - 8} ${.5 * rowh.get(t) - RADIUS - 8})`)))
+            .call(onOpacity));
+      circles.filter(t => t.type == Task.TYPE_TASK)
           .call(gs => child(gs, "circle", "task-dot")
             .attr("cx", t => dotx.get(t))
             .attr("cy", Math.floor(0.5 * YSKIP) - RADIUS)
             .call(onY(c => c.attr("cy", t => 0.5 * rowh.get(t) - RADIUS)))
             .call(onOpacity)
-            .call(s => {
-              ret.updateDotRadii = () => {
-                s.attr("r", t => expandedTasks.has(t) ? RADIUS * 2 : RADIUS);
-              };
-            }));
+            .call(onDotRadii(s =>
+                s.attr("r", t => expandedTasks.has(t) ? RADIUS * 2 : RADIUS))));
+      ret.updateDotRadii = () => {
+        _dotRadii.forEach(cb => cb());
+      }
       ret.updateDotRadii();
 
       const makeIcons = (rows) => {
@@ -1895,29 +2003,20 @@ limitations under the License.
     }
     const np_percentile90 = a => {
       if (a.err) return a;
-      if (!Array.isArray(a)) return [a, a];
+      if (!Array.isArray(a)) return [a, a, a];
       const b = [...a];
       b.sort(byValue);
       return [b[Math.floor(b.length * .05)],
+              b[Math.floor(b.length * .5)],
               b[Math.floor(b.length * .95)]];
     }
 
+    const msSvg = d3.select("#milestones-svg")
     const durations = new Map();
     const startDates = new Map();
     const endDates = new Map();
     const calculateDates = () => {
-      const makeWorkday = () => {
-        const today = new Date();
-        const two_weeks = new Date();
-        two_weeks.setDate(two_weeks.getDate() + 14);
-        const id = t => t;
-        const earliest = new Date(Math.min(today.valueOf(),
-          ...g.topo.map(t => t.started).filter(id).map(d => d.valueOf()),
-          ...g.topo.map(t => t.finished).filter(id).map(d => d.valueOf())));
-        return new Workday(earliest, []);
-      }
-      const w = makeWorkday();
-      const today = w.today();
+      const today = workdays.today();
       const defaultStart = np_rand_norm90(today, 10);
       startDateP.clear();
       endDateP.clear();
@@ -1932,24 +2031,213 @@ limitations under the License.
 
       const toDates = days => {
         if (days.err) return days;
-        return np_percentile90(days).map(wd => w.date(wd));
+        return np_percentile90(days).map(wd => workdays.date(wd));
       }
 
       g.topo.forEach(t => {
         const parents = g.edges(t);
-        const start = t.started !== null ? w.workDay(t.started) :
+        const start = t.started !== null ? workdays.workDay(t.started) :
             parents.length == 0 ? defaultStart :
             np_max(parents.map(p => endDates.get(p)).concat([defaultStart]));
         startDates.set(t, start);
         startDateP.set(t, toDates(start));
-        const end = t.finished !== null ? w.workDay(t.finished) :
+        const end = t.finished !== null ? workdays.workDay(t.finished) :
             np_add([start, durations.get(t)]);
         endDates.set(t, end);
         endDateP.set(t, toDates(end));
       });
       view.rows.displayDates();
+      completionDate.recalculate();
+
+      // milestone chart
+      // TODO: multiple rows
+      // TODO: put the timeline in a group, so we can reposition it on the
+      // Y-axis after we figure out how much room we need for the label lanes
+      // TODO: measure all the labels, then figure out how far the first and
+      // last label start and end are apart. There's a linear inequality, where
+      // the x-translated end of the timeline has to be _beyond_ the end of the
+      // last label (and ditto the start of the first).
+      const width = 1024;
+      const height = 1024;
+      const margin = 20;
+      const barH = 30;
+      const timelineY = Math.floor(height / 3);
+      const timelineTextY = Math.floor(timelineY + barH / 2);
+      const minDate =
+          new Date(
+              Math.min(...Array.from(startDateP.values())
+                .filter(a => a['err'] === undefined)
+                .map(a => a[0])));
+      minDate.setDate(1);
+      window.endDateP = endDateP;
+      const maxDate =
+          new Date(
+              Math.max(...Array.from(endDateP.values())
+                .filter(a => a['err'] === undefined)
+                .map(a => a[2])));
+      maxDate.setDate(0);
+      maxDate.setMonth(maxDate.getMonth() + 1);
+      const months = [];
+      for (let currentDate = new Date(minDate); currentDate < maxDate;
+          currentDate.setMonth(currentDate.getMonth() + 1)) {
+        months.push(new Date(currentDate));
+      }
+      // Generate timeline
+      let x = d3.scaleTime([minDate, maxDate], [margin, width - 2 * margin]);
+      const nextMonth = d => new Date(d.getFullYear(), d.getMonth() + 1, 1);
+      msSvg.selectAll('g.month').data(months).join('g').classed('month', true)
+          .call(g => g.selectAll('rect').data(d => [d]).join('rect')
+              .attr("x", d => Math.floor(x(d)))
+              .attr("y", timelineY)
+              .attr("width", d =>
+                Math.ceil(
+                  x(nextMonth(d)) - x(d)))
+              .attr("height", barH)
+              .attr("fill", d => ['#F6F6FF', '#DFDFFF'][d.getMonth() % 2]))
+          .call(g => g.selectAll('text').data(d => [d]).join('text')
+              .attr('x', d => Math.floor((x(d) + x(nextMonth(d))) / 2))
+              .attr('y', timelineTextY)
+              .attr('text-anchor', 'middle')
+              .attr('font-weight', 'bold')
+              .attr('opacity', .55)
+              .text(d => d.toLocaleDateString(undefined, {month: 'short'})));
+      // Show "Today".
+      // TODO: Show a little calendar glyph
+      msSvg.selectAll('g.today').data([new Date()])
+          .join('g').classed('today', true)
+          .call(g => g.selectAll("line").data(d => [d]).join('line')
+              .attr('x1', x).attr('x2', x)
+              .attr('y1', timelineY - 10).attr('y2', timelineY + barH + 10)
+              .attr('stroke', 'rgba(0, 0, 0, .33)'));
+      const milestones = g.topo.filter(t => t.type == Task.TYPE_MILESTONE &&
+          !endDateP.get(t)['err']);
+      // go in reverse order because the timelines look more natural
+      milestones.sort((a, b) => endDateP.get(b)[0] - endDateP.get(a)[0]);
+      const labels = milestones.map(t => ({
+        t, y: undefined, w: undefined, xs: undefined, xe: undefined,
+        xm: Math.floor(x(endDateP.get(t)[1]))}));
+      // TODO: add semi-opaque rects behind label text so crossing lines are easier to read
+      // TODO: try harder to avoid crossing lines?
+      // - constraint satisfaction?
+      // - reorder rows
+      // - move the label attachment point along the width of the label
+      // - reorder the lanes for the uncertainty
+      // TODO: view control panel
+      // - check/uncheck displayed milestones
+      // - set the start/end dates (pick from "all dates" "this year/quarter")
+      //   - start at Today
+      // - set the number of rows
+      // - set the font size
+      // - set the colors for the timeline
+      // - allow wrapping / hiding overflow
+      // TODO: add labels for finished tasks
+      // TODO: styling for unfinished milestones in the past
+      // - this should also apply to the task view too
+      const labelMap = new Map(labels.map(l => [l.t, l]));
+      const whiskers = msSvg.selectAll('g.milestones')
+          .data(milestones)
+          .join('g').classed('milestones', true);
+      const labelGroups = msSvg.selectAll('g.label').data(labels, d => d.t.id).join('g').classed('label', true);
+      const labelRects = labelGroups.selectAll('rect').data(d => [d], d => d.t.id).join('rect')
+          .attr('x', 0).attr('y', 0).attr('height', 20)
+          .attr('fill', 'white')
+          .attr('opacity', .5);  // obscure overlapping whiskers
+      // TODO: measure the label texts before we construct the timeline so we can make sure there's enough
+      // room to fit the final label on the chart.
+      // TODO: after laying out the labels, adjust the Y-location of the chart so all the labels are visible.
+      const labelTexts = labelGroups.selectAll('text').data(d => [d], d => d.t.id).join('text')
+          .text(d => d.t.name)
+          .attr('y', 10)
+          .attr('dominant-baseline', 'middle')
+          .each(function (l) {
+            l.w = Math.floor(this.getBBox().width);
+          });
+      labelRects.attr('width', d => d.w);
+      class LaneAssignment {
+        // Lanes are constructed right-to-left, highest X-coordinate first.
+        // Somehow it just looks better. So lanes[i] is the lowest used
+        // X-coordinate in lane i.
+        lanes = [];
+        constructor(ys, sep) {
+          this.ys = ys;
+          this.sep = sep;
+        }
+        // We're looking for the first lane with space at <end>.
+        queryLane(start, end) {
+          const idx = this.lanes.findIndex(l => end < l);
+          if (idx >= 0) return idx;
+          return this.lanes.length;
+        }
+        // We're looking for the first lane with space at <end>.
+        getLane(start, end) {
+          const idx = this.lanes.findIndex(l => end < l);
+          if (idx >= 0) {
+            this.lanes[idx] = start;
+            return idx;
+          }
+          this.lanes.push(start);
+          return this.lanes.length - 1;
+        }
+        getY(start, end) {
+          return Math.floor(this.ys + this.sep * this.getLane(start, end));
+        }
+      }
+      {
+        const sep = 20;
+        const above = new LaneAssignment(timelineY - sep * 2, -sep);
+        const below = new LaneAssignment(timelineY + barH + sep, +sep);
+        const getY = l => {
+        }
+        labels.forEach(l => {
+          const {w, xm} = l;
+          const [lb, ub] = [xm - w / 2, xm + w / 2].map(Math.floor);
+          const aboveIdx = above.queryLane(lb, ub);
+          const belowIdx = below.queryLane(lb, ub);
+          if (aboveIdx <= belowIdx) {
+            l.y = above.getY(lb, ub);
+            l.side = 'above';
+          } else {
+            l.y = below.getY(lb, ub);
+            l.side = 'below';
+          }
+        });
+        labelGroups
+            .attr('transform', l => `translate(${l.xm - l.w / 2} ${l.y})`);
+      }
+      const upperLane = new LaneAssignment(timelineY, -4);
+      const lowerLane = new LaneAssignment(timelineY + barH, 4);
+
+      const finishPath = (t, i) => {
+        const l = labelMap.get(t);
+        let ly = l.y;
+        if (l.side == 'above') ly += 20;
+        const lane = (ly > timelineY) ? lowerLane : upperLane;
+        if (t.finished || g.edges(t).every(u => u.finished)) {
+          const [lb, m, ub] = endDateP.get(t).map(x).map(Math.floor);
+          const y = lane.getY(m - 2, m + 2);  // put a little star here
+          return `M ${lb} ${y} ` +
+                 `H ${ub} ` +
+                 `M ${m} ${y} ` +
+                 `V ${ly}`;
+        } else {
+          const [lb, m, ub] = endDateP.get(t).map(x).map(Math.floor);
+          const y = lane.getY(lb, ub);
+          return `M ${lb} ${y} ` +
+                 `H ${ub} ` +
+                 `M ${m} ${y} ` +
+                 `V ${ly}`;
+        }
+      }
+      whiskers.selectAll('path').data(d => [d]).join('path')
+              .attr('d', t => finishPath(t))
+              .attr('stroke', 'rgba(0, 0, 0, .4)')
+              .attr('fill', 'none')
+              .attr('stroke-width', 2)
+              .attr('data-task', t => t.name);
     }
     setTimeout(calculateDates, 0);
+    window.g = g;
+    window.Task = Task;
   }
 
 </script>
