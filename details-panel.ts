@@ -57,9 +57,10 @@ export class DetailsPanel extends LitElement {
     const y = d3.scaleLinear().domain([0, s.length]).range([150, 0]);
     // TODO(williasr): the d3 typings are broken.
     type Line<T> = {
-      x(cb: (t: T, idx: number) => number): Line<T>,
-      y(cb: (t: T, idx: number) => number): Line<T>,
-      (s: T[]): Line<T>};
+      x(cb: (t: T, idx: number) => number): Line<T>;
+      y(cb: (t: T, idx: number) => number): Line<T>;
+      (s: T[]): Line<T>;
+    };
     const graphLine = d3.line() as unknown as Line<Date>;
     const graphPath = graphLine.x((d) => x(d)).y((d, i) => y(i))(s);
     //

@@ -43,10 +43,14 @@ export class HolidaysView extends LitElement {
     }
   `;
   override render() {
-    const holidays = this.holidays
-              .map((holiday: Holiday, idx: number) => ({idx, holiday}));
-    holidays.sort((a: SortedHoliday, b: SortedHoliday) =>
-                  a.holiday.startDate.valueOf() - b.holiday.startDate.valueOf());
+    const holidays = this.holidays.map((holiday: Holiday, idx: number) => ({
+      idx,
+      holiday,
+    }));
+    holidays.sort(
+      (a: SortedHoliday, b: SortedHoliday) =>
+        a.holiday.startDate.valueOf() - b.holiday.startDate.valueOf(),
+    );
     return html`
       <div>
         <table>
@@ -61,9 +65,11 @@ export class HolidaysView extends LitElement {
             <th>End date</th>
           </thead>
           <tbody @changed=${this.onChanged}>
-            ${holidays.map((h: SortedHoliday) =>
-                  html`<holiday-row .idx=${h.idx} .holiday=${h.holiday}>
-                       </holiday-row>`)}
+            ${holidays.map(
+              (h: SortedHoliday) =>
+                html`<holiday-row .idx=${h.idx} .holiday=${h.holiday}>
+                </holiday-row>`,
+            )}
           </tbody>
         </table>
       </div>
@@ -93,18 +99,21 @@ export class HolidayRow extends LitElement {
   `;
   override render() {
     return html`
-      <td><editable-text
+      <td
+        ><editable-text
           @changed=${this.onNameChanged}
           .text=${this.holiday.name}>
-          </editable-text>
+        </editable-text>
       </td>
-      <td><editable-date
+      <td
+        ><editable-date
           @changed=${this.onStartChanged}
           .dateActual=${this.holiday.startDate}
           .dateCalculated=${undef}>
         </editable-date>
       </td>
-      <td><editable-date
+      <td
+        ><editable-date
           @changed=${this.onEndChanged}
           .dateActual=${this.holiday.endDate}
           .dateCalculated=${undef}>

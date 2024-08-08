@@ -79,7 +79,10 @@ function lorems(prob: number) {
    4. with some small probability, keep the parent(s) as growable tips
 */
 
-function randomGraph(tasks: Task[]): {V: Map<number, Task>, E: Map<Task, Task[]>} {
+function randomGraph(tasks: Task[]): {
+  V: Map<number, Task>;
+  E: Map<Task, Task[]>;
+} {
   let now = new Date();
   now.setDate(now.getDate() - tasks.length);
   const E = tasks.length;

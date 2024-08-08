@@ -11,15 +11,23 @@
 import '@lit-labs/virtualizer';
 import type {LitVirtualizer} from '@lit-labs/virtualizer';
 import {virtualizerRef} from '@lit-labs/virtualizer/virtualize.js';
-import {LitElement, TemplateResult, css, html, noChange, nothing, svg} from 'lit';
+import {
+  LitElement,
+  TemplateResult,
+  css,
+  html,
+  noChange,
+  nothing,
+  svg,
+} from 'lit';
 import {Directive, ElementPart, Part, directive} from 'lit/async-directive.js';
 import {customElement, property, query} from 'lit/decorators.js';
 import {createRef, ref} from 'lit/directives/ref.js';
 import {Graph} from './graph';
 import * as np from './np';
+import {Task} from './task';
 import './task-row';
 import type {TaskRow} from './task-row';
-import {Task} from './task';
 import {assertIsDefined} from './util';
 import {FONTSIZE, PAD, YSKIP, displayDotX} from './view-constants';
 import {ViewOptions} from './view-options';
@@ -231,7 +239,7 @@ export class TaskGrid extends LitElement {
       } else {
         return html`<div class="omitted"></div>`;
       }
-    }
+    };
 
     // TODO: should set min-width instead of width, so that it expands to fill
     // the parent when it can. Otherwise it looks silly.
@@ -256,7 +264,10 @@ export class TaskGrid extends LitElement {
           @select=${this.handleSelect}>
           <lit-virtualizer
             .items=${this.g.topo as Task[]}
-            .renderItem=${renderItem as (t: unknown, idx: number) => TemplateResult}
+            .renderItem=${renderItem as (
+              t: unknown,
+              idx: number,
+            ) => TemplateResult}
             }}></lit-virtualizer>
         </div>
       </div>`;

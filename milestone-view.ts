@@ -104,10 +104,14 @@ export class MilestoneView extends LitElement {
     const months = this.getMonths(minDate, maxDate);
     // Generate timeline
     // TODO(williasr): d3 typings are broken
-    const scaleTime = (d3.scaleTime as any as (domain: Date[], range: number[]) => DateMap);
+    const scaleTime = d3.scaleTime as any as (
+      domain: Date[],
+      range: number[],
+    ) => DateMap;
     let x = scaleTime(
       [minDate, maxDate],
-      [this.margin, this.width - 2 * this.margin]);
+      [this.margin, this.width - 2 * this.margin],
+    );
     const milestones = this.g.topo.filter(
       (t) => t.type == 'milestone' && t.endDateP.type === 'percentile',
     );
