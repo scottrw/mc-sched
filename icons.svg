@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <symbol id="blocked" refX="0" refY="0" width="24" height="24"
+            viewBox="0 0 24 24">
+    <rect x="5" y="5" width="14" height="14"
+          stroke="grey" stroke-width="1" fill="rgba(68,71,70,.15)"></rect>
+    </symbol>
+    <symbol id="finished" refX="0" refY="0" width="24" height="24"
+            viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14"
+            stroke="black" stroke-width="1" fill="white"></rect>
+      <line fill="none" stroke="black" x1="5" y1="5" x2="19" y2="19"></line>
+      <line fill="none" stroke="black" x2="5" y1="5" x1="19" y2="19"></line>
+    </symbol>
+    <symbol id="ready" refX="0" refY="0" width="24" height="24"
+            viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14"
+            stroke="black" stroke-width="1" fill="white"></rect>
+    </symbol>
+    <symbol id="started" refX="0" refY="0" width="24" height="24"
+            viewBox="0 0 24 24">
+      <rect x="5" y="5" width="14" height="14" stroke="black"
+            stroke-width="1" fill="white"></rect>
+      <line fill="none" stroke="black" x2="5" y1="5" x1="19" y2="19"></line>
+    </symbol>
+    <symbol id="star" refX="center" refY="center" width="16" height="16"
+            viewBox="-8 -8 16 16">
+    </symbol>
+  </defs>
+</svg>

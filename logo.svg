@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 36 36">
+  <style>
+    .connector {
+      stroke-width: 2.5;
+      stroke: #666;
+    }
+    .yellow { fill: #e0c410 }
+    .blue { fill: #49a2ff }
+    .left-side { fill: black; opacity: 40% }
+    .right-side { fill: black; opacity: 20% }
+    .pip { fill: black; opacity: 50% }
+  </style>
+  <g transform="translate(0, 0) scale(2 2)" class="die">
+    <path d="M 8  0 l 8 5 v 8 l -8  5 l -8 -5 v -8 Z" class="blue"></path>
+    <path d="M 8 10 v 8       l  8 -5         v -8 Z" class="right-side"></path>
+    <path d="M 8 10 v 8       l -8 -5         v -8 Z" class="left-side"></path>
+    <ellipse cx="8"  cy="3"  rx="1.50" ry="0.75" class="pip"></ellipse>
+    <ellipse cx="5"  cy="5"  rx="1.50" ry="0.75" class="pip"></ellipse>
+    <ellipse cx="11" cy="5"  rx="1.50" ry="0.75" class="pip"></ellipse>
+    <ellipse cx="8"  cy="7"  rx="1.50" ry="0.75" class="pip"></ellipse>
+    <ellipse cx="4"  cy="11" rx="0.75" ry="1.50" class="pip"></ellipse>
+    <ellipse cx="14" cy="9"  rx="0.75" ry="1.50" class="pip"></ellipse>
+    <ellipse cx="10" cy="13" rx="0.75" ry="1.50" class="pip"></ellipse>
+  </g>
+</svg>

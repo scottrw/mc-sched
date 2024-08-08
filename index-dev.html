@@ -1,0 +1,171 @@
+<!DOCTYPE html><!-- @license
+Copyright Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+--><html><head><meta charset="utf-8">
+  <script type="importmap">
+    {
+      "imports": {
+        "lit/directives/class-map.js": "./node_modules/lit/directives/class-map.js",
+        "lit/async-directive.js": "./node_modules/lit/async-directive.js",
+        "@lit-labs/virtualizer": "./node_modules/@lit-labs/virtualizer/lit-virtualizer.js",
+        "lit/directives/ref.js": "./node_modules/lit/directives/ref.js",
+        "lit/decorators.js": "./node_modules/lit/decorators.js",
+        "lit": "./node_modules/lit/index.js",
+        "d3": "./node_modules/d3/src/index.js"
+      },
+      "scopes": {
+        "./node_modules/@lit-labs/virtualizer/": {
+          "lit/decorators/property.js": "./node_modules/lit/decorators/property.js",
+          "lit/directives/repeat.js": "./node_modules/lit/directives/repeat.js",
+          "lit/directive.js": "./node_modules/lit/directive.js",
+          "tslib": "./node_modules/tslib/tslib.es6.mjs"
+        },
+        "./node_modules/d3-scale-chromatic/": {
+          "d3-interpolate": "./node_modules/d3-interpolate/src/index.js",
+          "d3-color": "./node_modules/d3-color/src/index.js"
+        },
+        "./node_modules/d3-interpolate/": {
+          "d3-color": "./node_modules/d3-color/src/index.js"
+        },
+        "./node_modules/d3-time-format/": {
+          "d3-time": "./node_modules/d3-time/src/index.js"
+        },
+        "./node_modules/d3-transition/": {
+          "d3-interpolate": "./node_modules/d3-interpolate/src/index.js",
+          "d3-selection": "./node_modules/d3-selection/src/index.js",
+          "d3-dispatch": "./node_modules/d3-dispatch/src/index.js",
+          "d3-color": "./node_modules/d3-color/src/index.js",
+          "d3-timer": "./node_modules/d3-timer/src/index.js",
+          "d3-ease": "./node_modules/d3-ease/src/index.js"
+        },
+        "./node_modules/d3-delaunay/": {
+          "delaunator": "./node_modules/delaunator/index.js"
+        },
+        "./node_modules/lit-element/": {
+          "@lit/reactive-element": "./node_modules/@lit/reactive-element/reactive-element.js",
+          "lit-html": "./node_modules/lit-html/lit-html.js"
+        },
+        "./node_modules/d3-contour/": {
+          "d3-array": "./node_modules/d3-array/src/index.js"
+        },
+        "./node_modules/delaunator/": {
+          "robust-predicates": "./node_modules/robust-predicates/index.js"
+        },
+        "./node_modules/d3-array/": {
+          "internmap": "./node_modules/internmap/src/index.js"
+        },
+        "./node_modules/d3-brush/": {
+          "d3-interpolate": "./node_modules/d3-interpolate/src/index.js",
+          "d3-transition": "./node_modules/d3-transition/src/index.js",
+          "d3-selection": "./node_modules/d3-selection/src/index.js",
+          "d3-dispatch": "./node_modules/d3-dispatch/src/index.js",
+          "d3-drag": "./node_modules/d3-drag/src/index.js"
+        },
+        "./node_modules/d3-chord/": {
+          "d3-path": "./node_modules/d3-path/src/index.js"
+        },
+        "./node_modules/d3-fetch/": {
+          "d3-dsv": "./node_modules/d3-dsv/src/index.js"
+        },
+        "./node_modules/d3-force/": {
+          "d3-dispatch": "./node_modules/d3-dispatch/src/index.js",
+          "d3-quadtree": "./node_modules/d3-quadtree/src/index.js",
+          "d3-timer": "./node_modules/d3-timer/src/index.js"
+        },
+        "./node_modules/d3-scale/": {
+          "d3-interpolate": "./node_modules/d3-interpolate/src/index.js",
+          "d3-time-format": "./node_modules/d3-time-format/src/index.js",
+          "d3-format": "./node_modules/d3-format/src/index.js",
+          "d3-array": "./node_modules/d3-array/src/index.js",
+          "d3-time": "./node_modules/d3-time/src/index.js"
+        },
+        "./node_modules/d3-shape/": {
+          "d3-path": "./node_modules/d3-path/src/index.js"
+        },
+        "./node_modules/d3-drag/": {
+          "d3-selection": "./node_modules/d3-selection/src/index.js",
+          "d3-dispatch": "./node_modules/d3-dispatch/src/index.js"
+        },
+        "./node_modules/d3-time/": {
+          "d3-array": "./node_modules/d3-array/src/index.js"
+        },
+        "./node_modules/d3-zoom/": {
+          "d3-interpolate": "./node_modules/d3-interpolate/src/index.js",
+          "d3-transition": "./node_modules/d3-transition/src/index.js",
+          "d3-selection": "./node_modules/d3-selection/src/index.js",
+          "d3-dispatch": "./node_modules/d3-dispatch/src/index.js",
+          "d3-drag": "./node_modules/d3-drag/src/index.js"
+        },
+        "./node_modules/d3-geo/": {
+          "d3-array": "./node_modules/d3-array/src/index.js"
+        },
+        "./node_modules/lit/": {
+          "@lit/reactive-element/decorators/query-assigned-elements.js": "./node_modules/@lit/reactive-element/decorators/query-assigned-elements.js",
+          "@lit/reactive-element/decorators/query-assigned-nodes.js": "./node_modules/@lit/reactive-element/decorators/query-assigned-nodes.js",
+          "@lit/reactive-element/decorators/custom-element.js": "./node_modules/@lit/reactive-element/decorators/custom-element.js",
+          "@lit/reactive-element/decorators/event-options.js": "./node_modules/@lit/reactive-element/decorators/event-options.js",
+          "@lit/reactive-element/decorators/query-async.js": "./node_modules/@lit/reactive-element/decorators/query-async.js",
+          "@lit/reactive-element/decorators/query-all.js": "./node_modules/@lit/reactive-element/decorators/query-all.js",
+          "@lit/reactive-element/decorators/property.js": "./node_modules/@lit/reactive-element/decorators/property.js",
+          "@lit/reactive-element/decorators/query.js": "./node_modules/@lit/reactive-element/decorators/query.js",
+          "@lit/reactive-element/decorators/state.js": "./node_modules/@lit/reactive-element/decorators/state.js",
+          "lit-html/directives/class-map.js": "./node_modules/lit-html/directives/class-map.js",
+          "lit-html/directives/repeat.js": "./node_modules/lit-html/directives/repeat.js",
+          "lit-html/async-directive.js": "./node_modules/lit-html/async-directive.js",
+          "lit-element/lit-element.js": "./node_modules/lit-element/lit-element.js",
+          "lit-html/directives/ref.js": "./node_modules/lit-html/directives/ref.js",
+          "@lit/reactive-element": "./node_modules/@lit/reactive-element/reactive-element.js",
+          "lit-html/directive.js": "./node_modules/lit-html/directive.js",
+          "lit-html/is-server.js": "./node_modules/lit-html/is-server.js",
+          "lit-html": "./node_modules/lit-html/lit-html.js"
+        },
+        "./node_modules/d3/": {
+          "d3-scale-chromatic": "./node_modules/d3-scale-chromatic/src/index.js",
+          "d3-interpolate": "./node_modules/d3-interpolate/src/index.js",
+          "d3-time-format": "./node_modules/d3-time-format/src/index.js",
+          "d3-transition": "./node_modules/d3-transition/src/index.js",
+          "d3-hierarchy": "./node_modules/d3-hierarchy/src/index.js",
+          "d3-selection": "./node_modules/d3-selection/src/index.js",
+          "d3-delaunay": "./node_modules/d3-delaunay/src/index.js",
+          "d3-dispatch": "./node_modules/d3-dispatch/src/index.js",
+          "d3-quadtree": "./node_modules/d3-quadtree/src/index.js",
+          "d3-contour": "./node_modules/d3-contour/src/index.js",
+          "d3-polygon": "./node_modules/d3-polygon/src/index.js",
+          "d3-format": "./node_modules/d3-format/src/index.js",
+          "d3-random": "./node_modules/d3-random/src/index.js",
+          "d3-array": "./node_modules/d3-array/src/index.js",
+          "d3-brush": "./node_modules/d3-brush/src/index.js",
+          "d3-chord": "./node_modules/d3-chord/src/index.js",
+          "d3-color": "./node_modules/d3-color/src/index.js",
+          "d3-fetch": "./node_modules/d3-fetch/src/index.js",
+          "d3-force": "./node_modules/d3-force/src/index.js",
+          "d3-scale": "./node_modules/d3-scale/src/index.js",
+          "d3-shape": "./node_modules/d3-shape/src/index.js",
+          "d3-timer": "./node_modules/d3-timer/src/index.js",
+          "d3-axis": "./node_modules/d3-axis/src/index.js",
+          "d3-drag": "./node_modules/d3-drag/src/index.js",
+          "d3-ease": "./node_modules/d3-ease/src/index.js",
+          "d3-path": "./node_modules/d3-path/src/index.js",
+          "d3-time": "./node_modules/d3-time/src/index.js",
+          "d3-zoom": "./node_modules/d3-zoom/src/index.js",
+          "d3-dsv": "./node_modules/d3-dsv/src/index.js",
+          "d3-geo": "./node_modules/d3-geo/src/index.js"
+        }
+      }
+    }
+  </script>
+</head><body>
+<mc-sched></mc-sched>
+<script type="module" src="./dist/mc-sched.js"></script>
+</body></html>
