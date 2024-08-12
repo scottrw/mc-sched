@@ -1,6 +1,6 @@
 {
   "name": "mc_sched",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Monte-carlo scheduling library",
   "main": "mc-sched.js",
   "type": "module",

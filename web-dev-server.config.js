@@ -1,5 +1,6 @@
-/**
- * @fileoverview Description of this file.
+/** @license
+ * Copyright Google LLC
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 
