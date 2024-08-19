@@ -32,7 +32,7 @@ function expectEq<T>(e: T, a: T) {
     e === undefined
   ) {
     console.trace();
-    throw `Mismatch:\n` + `  Expected ${full(e)}.\n` + `  Actual   ${full(a)}`;
+    throw new Error(`Mismatch:\n` + `  Expected ${full(e)}.\n` + `  Actual   ${full(a)}`);
   } else {
     console.log('ok');
   }

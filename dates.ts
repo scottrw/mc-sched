@@ -113,11 +113,6 @@ export class Calendar {
   }
   /** Return the Date object <workday> number of business days after day0. */
   date(workday: number) {
-    if (typeof workday !== 'number') {
-      console.log(workday);
-      console.trace();
-      throw 'wtf';
-    }
     if (workday >= 0) {
       if (this.forward.length > workday) {
         return this.forward[workday];

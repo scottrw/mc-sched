@@ -117,7 +117,7 @@ export class MilestoneView extends LitElement {
     );
     // go in reverse order because the timelines look more natural
     const pct = (p: NPPercentileOrError<Date>): NPPercentile<Date> => {
-      if (p.type === 'error') throw 'error';
+      if (p.type === 'error') throw new Error('error');
       return p;
     };
     // NB: reverse sort order, because it looks better.

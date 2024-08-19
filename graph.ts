@@ -351,7 +351,7 @@ export class Graph {
       // XXX: The following line does nothing, because freeCols was an array of
       // numbers, not columns, and so this never worked.
       // XXX: if (freeCols.indexOf(col) >= 0) throw 'wtf';
-      if (freeCols.indexOf(col.x) >= 0) throw 'wtf';
+      if (freeCols.indexOf(col.x) >= 0) throw new Error('wtf');
       freeCols.push(col.x);
       freeCols.sort(byValue);
       columns.splice(columns.indexOf(col), 1);

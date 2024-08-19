@@ -236,12 +236,12 @@ export class MCSched extends LitElement {
     }
   }
   override render() {
-    return html` <div id="chrome">
-        <img src="logo.svg" width="40" height="40" />
-        <div id="chrome-middle">
-          <editable-title text="CRIB Unified Backlog"></editable-title>
-          <ul id="menus" @click=${this.menuClick}>
-            <li>File </li
+    return html`<div id="chrome"
+        ><img src="logo.svg" width="40" height="40"
+        ><div id="chrome-middle"
+          ><editable-title text="CRIB Unified Backlog"></editable-title
+          ><ul id="menus" @click=${this.menuClick}>
+            <li>File</li
             ><li
               >Edit
               <ul>
@@ -262,11 +262,11 @@ export class MCSched extends LitElement {
                   @click=${this.setTypeTask}
                   >Set as task<span>t</span>
                 </li></ul
-              > </li
+              ></li
             ><li
               >Insert
-              <ul>
-                <li
+              <ul
+                ><li
                   class=${classMap({disabled: this.selectedTasks < 1})}
                   @click=${this.addUpstream}
                   >Upstream task<span>&#x21E7;-Ctrl-&#x23ce;</span> </li
@@ -275,7 +275,7 @@ export class MCSched extends LitElement {
                   @click=${this.addDownstream}
                   >Downstream task<span>Ctrl-&#x23ce;</span>
                 </li></ul
-              > </li
+              ></li
             ><li
               >View
               <ul>
@@ -291,7 +291,7 @@ export class MCSched extends LitElement {
                       >${this.check(this.viewOptions.showOnlyMilestones)} Only
                       Milestones
                     </li></ul
-                  > </li
+                  ></li
                 ><li
                   >Date format
                   <ul>
@@ -308,8 +308,8 @@ export class MCSched extends LitElement {
             </li></ul
           >
         </div>
-      </div>
-      <dag-view
+      </div
+      ><dag-view
         id="dag-view"
         .graph=${this.g}
         .calendar=${this.calendar}
@@ -318,40 +318,37 @@ export class MCSched extends LitElement {
         .viewOptions=${this.viewOptions}
         style="display: ${this.currentRoute == '/tasks'
           ? 'grid'
-          : 'none'}"></dag-view>
-      <milestone-view
+          : 'none'}"></dag-view
+      ><milestone-view
         id="milestones"
         .graph=${this.g}
         style="display: ${this.currentRoute == '/milestones'
           ? 'grid'
-          : 'none'}"></milestone-view>
-      <holidays-view
+          : 'none'}"></milestone-view
+      ><holidays-view
         id="holidays"
         .holidays=${this.holidays}
         @changed=${this.holidaysChanged}
         style="display: ${this.currentRoute == '/holidays'
           ? 'grid'
-          : 'none'}"></holidays-view>
-      <div id="tabs">
-        <div
+          : 'none'}"></holidays-view
+      ><div id="tabs"
+        ><div
           class="${this.currentRoute == '/tasks' ? 'tab-active' : nothing}"
           id="tasks-tab"
           @click=${() => this.setRoute('/tasks')}
           >Tasks</div
-        >
-        <div
+        ><div
           class="${this.currentRoute == '/milestones' ? 'tab-active' : nothing}"
           id="milestones-tab"
           @click=${() => this.setRoute('/milestones')}
           >Milestones</div
-        >
-        <div
+        ><div
           class="${this.currentRoute == '/holidays' ? 'tab-active' : nothing}"
           id="holidays-tab"
           @click=${() => this.setRoute('/holidays')}
           >Holidays</div
-        >
-      </div>`;
+        ></div>`;
   }
   holidaysChanged(e: CustomEvent) {
     this.holidays = e.detail.holidays;
