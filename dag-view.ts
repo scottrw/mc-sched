@@ -22,6 +22,7 @@ import type {ToolButton} from './tool-button';
 import {assertIsDefined} from './util';
 import {ViewOptions, fireViewOptionsChanged} from './view-options';
 
+@customElement('dag-view')
 export class DagView extends LitElement {
   @property() detailsVisible: boolean = false;
   @property() selectedTasks: number = 0;
@@ -290,4 +291,3 @@ export class DagView extends LitElement {
     this.details.activeTask = (e.target as TaskGrid).activeTask;
   }
 }
-customElements.define('dag-view', DagView);

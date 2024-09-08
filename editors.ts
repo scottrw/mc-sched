@@ -92,7 +92,7 @@ export class EditableTitle extends LitElement {
 }
 
 class HideableElement extends LitElement {
-  static override styles = css`
+  static override styles: any = css`
     input {
       width: 100%;
       outline: none;
@@ -184,6 +184,7 @@ class HideableElement extends LitElement {
  */
 @customElement('autocomplete-edit')
 export class AutocompleteEdit extends HideableElement {
+  static override styles = HideableElement.styles;
   @property() text?: string;
   @property() options: string[] = defaultTasks;
   override render() {
@@ -202,12 +203,12 @@ export class AutocompleteEdit extends HideableElement {
     super.fireAccept(detail);
   }
   override fireChange() {
-    console.log(`fireChange from text-edit ${this.inputRef.value!.value}`);
   }
 }
 
 @customElement('text-edit')
 export class TextEdit extends HideableElement {
+  static override styles = HideableElement.styles;
   @property() text?: string;
   override render() {
     return html`<input
@@ -220,7 +221,6 @@ export class TextEdit extends HideableElement {
     super.fireAccept(detail);
   }
   override fireChange() {
-    console.log(`fireChange from text-edit ${this.inputRef.value!.value}`);
   }
 }
 
@@ -231,11 +231,10 @@ const _est_pattern_str = _est_pattern.source;
 @customElement('est-edit')
 export class EstEdit extends HideableElement {
   // TODO: validate that est-edit lb < ub
-  static override styles = css`
-    input:invalid {
-      background-color: pink;
-    }
-  `;
+  static override styles = [
+    HideableElement.styles,
+    css`input:invalid { background-color: pink; }`
+  ];
   @property() estimate?: Estimate;
   override render() {
     return html` <input
@@ -253,6 +252,7 @@ export class EstEdit extends HideableElement {
 
 @customElement('date-edit')
 export class DateEdit extends HideableElement {
+  static override styles = HideableElement.styles;
   @property() date?: Date;
   override render() {
     return html` <input
@@ -315,6 +315,7 @@ export abstract class Editable extends LitElement {
 
 @customElement('editable-text')
 export class EditableText extends Editable {
+  static override styles = Editable.styles;
   @property() text?: string;
   textEditRef = createRef<TextEdit>();
   getContent() {
@@ -333,6 +334,7 @@ export class EditableText extends Editable {
 
 @customElement('editable-est')
 export class EditableEst extends Editable {
+  static override styles = Editable.styles;
   @property() estimate?: Estimate;
   estEditRef = createRef<EstEdit>();
   getContent() {
@@ -351,6 +353,7 @@ export class EditableEst extends Editable {
 
 @customElement('editable-date')
 export class EditableDate extends Editable {
+  static override styles = Editable.styles;
   @property() dateActual?: Date;
   @property() dateCalculated?: NPPercentileOrError<Date>;
   @property() dateFormat: 'abs' | 'rel' = 'abs';
