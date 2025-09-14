@@ -8,18 +8,26 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {LitElement, css, html, nothing} from 'lit';
-import {customElement, property, query, state} from 'lit/decorators.js';
-import {classMap} from 'lit/directives/class-map.js';
 import './dag-view';
-import type {DagView} from './dag-view';
-import {Calendar, Holiday} from './dates';
 import './editors';
 import './holidays-view';
 import './milestone-view';
+
+import {css, html, LitElement, nothing} from 'lit';
+import {customElement, property, query, state} from 'lit/decorators.js';
+import {classMap} from 'lit/directives/class-map.js';
+
+import {DateObserver} from './date-observer';
+import type {DagView} from './dag-view';
+import {Calendar, Holiday} from './dates';
+import type {EditableTitle} from './editors';
+import {GraphData, Graph} from './graph';
 import {makeRandomGraph, makeRandomHolidays} from './random-graph';
-import type {Task} from './task';
+import {Task} from './task';
+import type {SerializedTask} from './task';
 import {ChangeViewOptions, ViewOptions} from './view-options';
+
+export type Content = {title: string, graph: GraphData};
 
 // TODO: window title broken
 @customElement('mc-sched')
@@ -28,6 +36,10 @@ export class MCSched extends LitElement {
   @property() viewOptions: ViewOptions = new ViewOptions();
   @property() selectedTasks: number = 0;
   @property() activeTask?: Task;
+  @property() projectTitle: string = 'Untitled';
+  @property() initialContent?: Content;
+
+  dateObserver = new DateObserver(this);
 
   static override styles = css`
     :host {
@@ -76,7 +88,7 @@ export class MCSched extends LitElement {
       align-self: flex-end;
     }
     #menus {
-      display: block;
+      display: inline-block;
       margin: 0;
       padding: 0;
       font-size: 16px;
@@ -165,6 +177,14 @@ export class MCSched extends LitElement {
     .tab-active {
       background-color: white;
     }
+    #doc-status {
+      display: inline-block;
+      padding-left: 2em;
+      user-select: none;
+      cursor: default;
+      font-size: smaller;
+      color: grey;
+    }
   `;
   boundOnHashChange = this.onHashChange.bind(this);
   onHashChange(e: Event) {
@@ -180,6 +200,11 @@ export class MCSched extends LitElement {
   }
   override connectedCallback() {
     super.connectedCallback();
+    if (this.g === undefined && this.initialContent !== undefined) {
+      this.g = Graph.deserialize(this.initialContent.graph);
+    } else {
+      this.g = makeRandomGraph(20);
+    }
     window.addEventListener('hashchange', this.boundOnHashChange);
     window.addEventListener('click', this.boundWindowClick);
     this.onHashChange(new Event('hashchange'));
@@ -189,7 +214,7 @@ export class MCSched extends LitElement {
     window.removeEventListener('hashchange', this.boundOnHashChange);
     window.removeEventListener('click', this.boundWindowClick);
   }
-  g = makeRandomGraph(20);
+  g!: Graph;
   holidays: Holiday[] = makeRandomHolidays(10);
   calendar = new Calendar(new Date(), this.holidayDates(this.holidays));
   holidayDates(holidays: Holiday[]): Date[] {
@@ -235,30 +260,37 @@ export class MCSched extends LitElement {
       return html`&#x2610;`;
     }
   }
-  override render() {
-    return html`<div id="chrome"
-        ><img src="logo.svg" width="40" height="40"
-        ><div id="chrome-middle"
-          ><editable-title text="CRIB Unified Backlog"></editable-title
-          ><ul id="menus" @click=${this.menuClick}>
-            <li>File</li
+  menus() {
+  return html`<ul id="menus" @click=${this.menuClick}>
+            <li>File<ul
+              ><li @click=${this.copy}>Make Copy<span></span></li
+              ><li
+                  @click=${this.save}
+                  >Save<span></span> </li
+                ><li
+                  @click=${this.open}
+                  >Open<span></span> </li
+                ></ul
+              ></li
             ><li
               >Edit
               <ul>
                 <li
-                  class=${classMap({disabled: this.selectedTasks < 1})}
+                  class=${classMap({
+      disabled: this.selectedTasks < 1
+    })}
                   @click=${this.deleteTasks}
                   >Delete tasks<span>&#x232b;</span> </li
                 ><li
                   class=${classMap({
-                    disabled: !(this.activeTask?.type == 'task'),
-                  })}
+      disabled: !(this.activeTask?.type == 'task'),
+    })}
                   @click=${this.setTypeMilestone}
                   >Set as milestone<span>m</span> </li
                 ><li
                   class=${classMap({
-                    disabled: !(this.activeTask?.type == 'milestone'),
-                  })}
+      disabled: !(this.activeTask?.type == 'milestone'),
+    })}
                   @click=${this.setTypeTask}
                   >Set as task<span>t</span>
                 </li></ul
@@ -267,11 +299,15 @@ export class MCSched extends LitElement {
               >Insert
               <ul
                 ><li
-                  class=${classMap({disabled: this.selectedTasks < 1})}
+                  class=${classMap({
+      disabled: this.selectedTasks < 1
+    })}
                   @click=${this.addUpstream}
                   >Upstream task<span>&#x21E7;-Ctrl-&#x23ce;</span> </li
                 ><li
-                  class=${classMap({disabled: this.selectedTasks < 1})}
+                  class=${classMap({
+      disabled: this.selectedTasks < 1
+    })}
                   @click=${this.addDownstream}
                   >Downstream task<span>Ctrl-&#x23ce;</span>
                 </li></ul
@@ -286,7 +322,8 @@ export class MCSched extends LitElement {
                       >${this.check(this.viewOptions.showFinished)} Finished
                       tasks </li
                     ><li @click=${this.toggleBlocked}
-                      >${this.check(this.viewOptions.showBlocked)} Blocked tasks </li
+                      >${
+        this.check(this.viewOptions.showBlocked)} Blocked tasks </li
                     ><li @click=${this.toggleMilestones}
                       >${this.check(this.viewOptions.showOnlyMilestones)} Only
                       Milestones
@@ -306,9 +343,20 @@ export class MCSched extends LitElement {
                 </li></ul
               >
             </li></ul
-          >
-        </div>
-      </div
+          >`;
+  }
+  override render() {
+    return html`<div id="chrome"
+        ><img src="https://static.corp.google.com/tasksight-team/logo.svg" width="40" height="40"
+        ><div id="chrome-middle"
+          ><editable-title .text=${this.projectTitle} @title-updated=${
+        this.handleTitleUpdated}></editable-title
+          ><div id=menubar
+            >${this.menus()}<slot name="doc-status" id=doc-status
+          >No status</slot
+          ></div
+        ></div
+      ></div
       ><dag-view
         id="dag-view"
         .graph=${this.g}
@@ -316,22 +364,19 @@ export class MCSched extends LitElement {
         @view-options-changed=${this.onViewOptionsChanged}
         @selection-changed=${this.handleSelectionChanged}
         .viewOptions=${this.viewOptions}
-        style="display: ${this.currentRoute == '/tasks'
-          ? 'grid'
-          : 'none'}"></dag-view
+        style="display: ${
+        this.currentRoute == '/tasks' ? 'grid' : 'none'}"></dag-view
       ><milestone-view
         id="milestones"
         .graph=${this.g}
-        style="display: ${this.currentRoute == '/milestones'
-          ? 'grid'
-          : 'none'}"></milestone-view
+        style="display: ${
+        this.currentRoute == '/milestones' ? 'grid' : 'none'}"></milestone-view
       ><holidays-view
         id="holidays"
         .holidays=${this.holidays}
         @changed=${this.holidaysChanged}
-        style="display: ${this.currentRoute == '/holidays'
-          ? 'grid'
-          : 'none'}"></holidays-view
+        style="display: ${
+        this.currentRoute == '/holidays' ? 'grid' : 'none'}"></holidays-view
       ><div id="tabs"
         ><div
           class="${this.currentRoute == '/tasks' ? 'tab-active' : nothing}"
@@ -389,6 +434,9 @@ export class MCSched extends LitElement {
     this.selectedTasks = this.dagView!.selectedTasks;
     this.activeTask = e.detail.activeTask;
   }
+  handleTitleUpdated(e: CustomEvent<string>) {
+    this.projectTitle = (e.target as EditableTitle).text;
+  }
   toggleFinished(e: MouseEvent) {
     this.viewOptions = {
       ...this.viewOptions,
@@ -419,5 +467,28 @@ export class MCSched extends LitElement {
   setRoute(route: string) {
     console.log('update hash', `#${route}`);
     window.location.hash = `#${route}`;
+  }
+  serialize() {
+    return this.g.serialize();
+  }
+  /* For loading changes after the element has been displayed */
+  loadFromJson(data: GraphData) {
+    this.g = Graph.deserialize(data);
+    window.setTimeout(() => this.g.calculateDates(this.calendar));
+    this.requestUpdate();
+  }
+  copy() {
+    this.dispatchEvent(
+      new CustomEvent('copy', {bubbles: true, composed: true}));
+  }
+  save() {
+    this.dispatchEvent(
+        new CustomEvent('save', {bubbles: true, composed: true}),
+    );
+  }
+  open() {
+    this.dispatchEvent(
+        new CustomEvent('open', {bubbles: true, composed: true}),
+    );
   }
 }

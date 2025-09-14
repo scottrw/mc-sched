@@ -203,7 +203,8 @@ export class TaskGrid extends LitElement {
     _hdr('circles', '', colid);
     _hdr('status', '', YSKIP);
     _hdr('name', 'Task name', FONTSIZE * 20);
-    _hdr('est', 'Est', FONTSIZE * 5);
+    _hdr('cal_est', 'Cal Est', FONTSIZE * 5);
+    _hdr('eng_est', 'Eng Est', FONTSIZE * 5);
     _hdr('start', 'Start', FONTSIZE * 10);
     _hdr('end', 'End', FONTSIZE * 10);
     _hdr('gantt', '', 1000);
@@ -224,7 +225,11 @@ export class TaskGrid extends LitElement {
       return result;
     };
     // TODO: the typing for lit-virtualizer is pretty weird.
-    const renderItem = (t: Task): TemplateResult => {
+    const renderItem = (t: Task): any => {
+      if (t === undefined) {
+        console.log('rendered an undefined task');
+        return nothing;
+      }
       if (shouldShow(t)) {
         return html`<task-row
           .task=${t}
@@ -243,7 +248,7 @@ export class TaskGrid extends LitElement {
 
     // TODO: should set min-width instead of width, so that it expands to fill
     // the parent when it can. Otherwise it looks silly.
-    return html` <div
+    return html`<div
         id="column-headers-wrapper"
         ${ref(this.headersWrapperRef)}>
         <table id="column-headers" style="width: ${curX + 12 + 'px'}">
@@ -251,14 +256,14 @@ export class TaskGrid extends LitElement {
             ${allHeaders.map(
               (h) => html`<td style="width: ${h.width + 'px'}">${h.title}</td>`,
             )}
-          </tr></table
-        >
-      </div>
-      <div
+          </tr
+        ></table
+      ></div
+      ><div
         id="content"
         @scroll=${this.syncScroll}
-        @create-task=${this.handleCreateTask}>
-        <div
+        @create-task=${this.handleCreateTask}
+        >${this.createFirstTask()}<div
           id="table-content"
           style="width: ${curX + 'px'}"
           @select=${this.handleSelect}>
@@ -268,9 +273,21 @@ export class TaskGrid extends LitElement {
               t: unknown,
               idx: number,
             ) => TemplateResult}
-            }}></lit-virtualizer>
-        </div>
-      </div>`;
+            }}></lit-virtualizer
+        ></div
+      ></div>`;
+  }
+  createFirstTask() {
+    if (this.g.topo.length == 0) {
+      return html`<div
+        @click=${this.handleCreateFirstTask}
+        >Create your first task!</div>`;
+    } else {
+      return nothing;
+    }
+  }
+  handleCreateFirstTask() {
+    this.createTask({before: true, branch: false});
   }
   handleSelect(e: CustomEvent) {
     const task = (e.target as unknown as TaskRow).task;
@@ -292,6 +309,11 @@ export class TaskGrid extends LitElement {
         e.target as HTMLElement
       )?.scrollLeft;
   }
+  fireChanged(note?: string) {
+    this.dispatchEvent(
+      new CustomEvent('changed', {detail: {note}, bubbles: true, composed: true}),
+    );
+  }
   fireCalculateDates() {
     this.dispatchEvent(
       new CustomEvent('calculate-dates', {bubbles: true, composed: true}),
@@ -301,10 +323,12 @@ export class TaskGrid extends LitElement {
     this.selectedTasks.forEach((t) => {
       t.type = t.type == 'task' ? 'milestone' : 'task';
     });
+    this.fireChanged('toggleType');
     this.requestUpdate();
   }
   setTypeTask() {
     this.selectedTasks.forEach((t) => (t.type = 'task'));
+    this.fireChanged('setTypeTask');
     this.requestUpdate();
     this.updateComplete.then(() => {
       this.fireCalculateDates();
@@ -312,19 +336,24 @@ export class TaskGrid extends LitElement {
   }
   setTypeMilestone() {
     this.selectedTasks.forEach((t) => (t.type = 'milestone'));
+    this.fireChanged('setTypeMilestone');
     this.requestUpdate();
     this.updateComplete.then(() => {
       this.fireCalculateDates();
     });
   }
   del({healEdges}: {healEdges: boolean}) {
-    const lastTask = this._orderedTasks().pop();
-    if (lastTask) {
-      const nextTask = this.g.next(lastTask);
+    const orderedTasks = this._orderedTasks();
+    const firstTask = orderedTasks.shift();
+    if (firstTask) {
+      const idx = this.g.topo.indexOf(firstTask);
       for (let t of this.selectedTasks) {
         this._del(t, {healEdges});
       }
-      this.set(nextTask);
+      if (idx < this.g.topo.length - 1) {
+        this.set(this.g.topo[idx]);
+      }
+      this.fireChanged('del');
       this.updateComplete.then(() => {
         this.fireCalculateDates();
       });
@@ -342,9 +371,9 @@ export class TaskGrid extends LitElement {
   }
   _del(t: Task, {healEdges}: {healEdges: boolean}) {
     this.g.removeNode(t, healEdges);
+    this.selectedTasks.delete(t);
     this.retopo();
     assertIsDefined(this.g);
-    this.selectedTasks.delete(t);
     if (this.activeTask == t) {
       this.activeTask = this._orderedTasks().pop();
     }
@@ -409,6 +438,7 @@ export class TaskGrid extends LitElement {
     const t = tasks.pop();
     if (t) {
       tasks.forEach((p) => this.g.addEdge(t, p));
+      this.fireChanged('addDeps');
       this.requestUpdate();
       this.updateComplete.then(() => {
         this.fireCalculateDates();
@@ -423,6 +453,7 @@ export class TaskGrid extends LitElement {
       tasks
         .filter((p) => dependsOn.indexOf(p) >= 0)
         .forEach((p) => this.g.removeEdge(t, p));
+      this.fireChanged('removeDeps');
       this.requestUpdate();
       this.updateComplete.then(() => {
         this.fireCalculateDates();
@@ -445,6 +476,7 @@ export class TaskGrid extends LitElement {
       }
     }
     this.retopo();
+    this.fireChanged('shiftUp');
     this.requestUpdate();
     this.updateComplete.then(() =>
       (this.getTaskRow(tasks[0]) as any)?.scrollIntoViewIfNeeded(),
@@ -466,29 +498,29 @@ export class TaskGrid extends LitElement {
       }
       this.retopo();
     }
+    this.fireChanged('shiftDown');
     this.requestUpdate();
     this.updateComplete.then(() =>
       (this.getTaskRow(tasks[0]) as any)?.scrollIntoViewIfNeeded(),
     );
   }
   createTask({before, branch}: {before: boolean; branch: boolean}) {
-    const t = new Task('New task');
+    let at = 0;
+    let t: Task;
     if (!this.activeTask) {
-      this.g.topo.splice(0, 0, t);
-      this.retopo();
+      t = this.g.insertTask('New task', at);
     } else {
       const selectedIdxs: number[] = [];
-      this.selectedTasks.forEach((t) =>
-        selectedIdxs.push(this.g.topo.indexOf(t)),
-      );
+      this.selectedTasks.forEach(t =>
+        selectedIdxs.push(this.g.topo.indexOf(t)));
       const targetIdx = before
         ? Math.min(...selectedIdxs)
         : Math.max(...selectedIdxs);
       const target = this.g.topo[targetIdx];
       if (before) {
-        this.g.insertBefore(t, target);
+        t = this.g.insertTask('New task', targetIdx);
       } else {
-        this.g.insertAfter(t, target);
+        t = this.g.insertTask('New task', targetIdx + 1);
       }
       if (before) {
         if (!branch) {
@@ -512,6 +544,7 @@ export class TaskGrid extends LitElement {
       }
     }
     this.retopo();
+    this.fireChanged('createTask');
     this.set(t);
     TaskMapDirective.row(t).then((r) => {
       this.fireCalculateDates();
@@ -520,6 +553,7 @@ export class TaskGrid extends LitElement {
   }
   toggleStatus() {
     this.activeTask?.toggleStatus(new Date());
+    this.fireChanged('toggleStatus');
     window.setTimeout(() => {
       this.fireCalculateDates();
     });

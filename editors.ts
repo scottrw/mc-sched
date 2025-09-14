@@ -25,6 +25,7 @@ import {createRef, ref} from 'lit/directives/ref.js';
 import {fmtDateAll} from './dates';
 import {Estimate} from './estimate';
 import type {NPPercentileOrError} from './np';
+import {Op, EditOp, EditOpBuilder, EditTitleOp} from './operation';
 
 const defaultTasks = [
   'Architecture Design',
@@ -60,16 +61,35 @@ export class EditableTitle extends LitElement {
   get input() {
     return this.inputRef.value!;
   }
+
   override render() {
     return html` <input
       type="text"
       title="Rename"
       spellcheck="false"
       autocomplete="off"
+      style="width: ${this.text.length}ch"
       ${ref(this.inputRef)}
       @blur=${this.fireTitleUpdated}
       @keydown=${this.keydown}
-      value=${this.text} />`;
+      @beforeinput=${this.handleBeforeInput}
+      @input=${this.handleInput}
+      .value=${this.text} />`;
+  }
+  pendingEditOp?: EditOpBuilder;
+  handleBeforeInput() {
+    this.pendingEditOp = new EditOpBuilder(this.input.value);
+  }
+  handleInput() {
+    if (this.pendingEditOp !== undefined) {
+      const editOp = this.pendingEditOp.build(this.input.value);
+      this.pendingEditOp = undefined;
+      this.dispatchEvent(
+        new CustomEvent('operate', {detail: new EditTitleOp(editOp),
+                        bubbles: true, composed: true}));
+    } else {
+      console.trace('handleChanged with no pending op builder');
+    }
   }
   fireTitleUpdated() {
     if (this.input.value != this.text) {
@@ -86,6 +106,7 @@ export class EditableTitle extends LitElement {
       return;
     }
     if (e.key == 'Enter') {
+      this.input.blur();
       this.fireTitleUpdated();
     }
   }

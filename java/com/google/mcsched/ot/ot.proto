@@ -1,0 +1,124 @@
+edition = "2023";
+
+package mcsched.ot;
+
+option java_multiple_files = true;
+
+message PIntArrayProto {
+  repeated int64 values = 1;
+}
+
+message PatchableProto {
+  oneof type {
+    string text = 1;
+    PIntArrayProto array = 2;
+  }
+}
+
+message ChangeProto {
+  int64 server_version = 1;
+  int64 session_id = 2;
+  int64 client_version = 3;
+
+  repeated OpProto ops = 4;
+}
+
+message ChangesProto {
+  repeated ChangeProto changes = 1;
+}
+
+message OpProto {
+  oneof op {
+    DeleteNodeOpProto delete_node = 1;
+    EditDocOpProto edit_doc = 2;
+    EditNodeOpProto edit_node = 3;
+    IndexOpProto index = 4;
+    NewNodeOpProto new_node = 5;
+    NoOpProto no_op = 6;
+    RenameNodeOpProto rename = 7;
+  }
+}
+
+message DeleteNodeOpProto {
+  int64 id = 1;
+}
+
+message EditDocOpProto {
+  DocAddressProto address = 1;
+  repeated PatchProto patches = 2;
+}
+
+message EditNodeOpProto {
+  NodeAddressProto address = 1;
+  repeated PatchProto patches = 2;
+}
+
+message IndexOpProto {
+  PatchProto patch = 1;
+}
+
+message NewNodeOpProto {
+  int64 id = 1;
+}
+
+message NoOpProto {}
+
+message RenameNodeOpProto {
+  int64 from = 1;
+  int64 to = 2;
+}
+
+message DocAddressProto {
+  enum Slot {
+    TITLE = 0;
+    SUBTITLE = 1;
+  }
+  Slot slot = 1;
+}
+
+message NodeAddressProto {
+  int64 id = 1;
+  enum Slot {
+    NAME = 0;
+  }
+  Slot slot = 2;
+}
+
+message PatchProto {
+  oneof patch {
+    CompositePatchProto composite = 1;
+    EditPatchProto edit = 2;
+    InsertPatchProto insert = 3;
+    MovePatchProto move = 4;
+    NopPatchProto nop = 5;
+    RemovePatchProto remove = 6;
+  }
+}
+
+message CompositePatchProto {
+  repeated PatchProto patches = 1;
+}
+
+message EditPatchProto {
+  int64 at = 1;
+  PatchableProto remove = 2;
+  PatchableProto insert = 3;
+}
+
+message InsertPatchProto {
+  int64 at = 1;
+  PatchableProto insert = 2;
+}
+
+message MovePatchProto {
+  int64 from = 1;
+  int64 to = 2;
+  PatchableProto item = 3;
+}
+
+message NopPatchProto {}
+
+message RemovePatchProto {
+  int64 at = 1;
+  PatchableProto remove = 2;
+}

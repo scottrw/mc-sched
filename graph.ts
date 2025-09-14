@@ -19,76 +19,56 @@ import {
   byValue,
   undef,
 } from './np';
-import type {Task} from './task';
+import {SerializedTask, Task} from './task';
 
-function invertEdges(V: Set<Task>, E: Map<Task, Task[]>) {
-  const E_inv = new Map<Task, Task[]>();
-  V.forEach((v) => E_inv.set(v, []));
-  E.forEach((dependsOn, requiredBy) =>
-    dependsOn.forEach((preReq) => E_inv.get(preReq)!.push(requiredBy)),
-  );
-  return E_inv;
-}
+export type EData = {
+  from: number; to: number[];
+};
 
-// The json is supposed to be stored topologically sorted, but we can't count on
-// it.
-function topoSort(V: Set<Task>, E: Map<Task, Task[]>) {
-  const UNVISITED = 1;
-  const DISCOVERED = 2;
-  const FINISHED = 3;
-
-  const discovery = new Map();
-  V.forEach((v) => discovery.set(v, UNVISITED));
-  const discoveryPath = new Map<Task, Task[]>();
-  const topo: Task[] = [];
-  function dfs(v: Task, path: Task[], prefix: string) {
-    if (discovery.get(v) != UNVISITED) return;
-    discovery.set(v, DISCOVERED);
-    discoveryPath.set(v, path);
-    E.get(v)!.forEach((u, i) => {
-      if (discovery.get(u) == DISCOVERED) {
-        const msg = `Not a DAG: ${v.id}->${discoveryPath
-          .get(u)!
-          .map((v) => v.id)
-          .join('->')}, ${path.map((v) => v.id).join('->')}`;
-        alert(msg);
-        console.log(msg);
-      }
-      if (discovery.get(u) == FINISHED) return;
-      dfs(u, [...path, u], prefix + ' ');
-    });
-    discovery.set(v, FINISHED);
-    topo.push(v);
-  }
-  V.forEach((v) => dfs(v, [v], ''));
-  return topo;
-}
-
-function setPop<T>(s: Set<T>): T {
-  const val = s.values().next().value;
-  s.delete(val);
-  return val;
-}
+export type GraphData = {
+  tasks: SerializedTask[];
+  E: EData[];
+  nextTaskId: number;
+};
 
 export class Graph {
-  V = new Set<Task>();
+  tasksById = new Map<number, Task>();
+  allTasks = new Set<Task>();
   E = new Map<Task, Task[]>();
   E_inv = new Map<Task, Task[]>();
   topo: Task[] = [];
   allEdges: [Task, Task][] = [];
+  nextTaskId: number = 0;
 
-  constructor(
-    V: Set<Task>,
-    E: Map<Task, Task[]>,
-    E_inv: Map<Task, Task[]>,
-    topo: Task[],
-  ) {
-    this.V = V;
-    this.E = E;
-    this.E_inv = E_inv;
-    this.topo = topo;
-    this.allEdges = [];
-    this.E.forEach((vs, k) => vs.forEach((v) => this.allEdges.push([k, v])));
+  totalEng: NPValue = undef;
+  completedEng: NPValue = undef;
+  percentCompleted: NPValue = undef;
+
+  static create(): Graph {
+    return new Graph();
+  }
+
+  static deserialize(data: GraphData): Graph {
+    const g = new Graph();
+    for (const task of data.tasks) {
+      const t = Task.deserialize(task);
+      g._appendTask(t);
+    }
+    for (const {from, to} of data.E) {
+      to.forEach(t => g.addEdge(g.task(from), g.task(t)));
+    }
+    g.nextTaskId = data.nextTaskId;
+    return g;
+  }
+
+  serialize(): GraphData {
+    const tasks: SerializedTask[] = this.topo.map(v => v.serialize());
+    const edges: EData[] = [];
+    for (const [k, vs] of this.E) {
+      edges.push({from: k.id, to: vs.map((v) => v.id)});
+    }
+    const data = {tasks, E: edges, nextTaskId: this.nextTaskId} as GraphData;
+    return data;
   }
 
   removeEdge(from: Task, to: Task) {
@@ -110,8 +90,40 @@ export class Graph {
     }
   }
 
+  task(id: number): Task {
+    const t = this.tasksById.get(id);
+    if (t === undefined) {
+      throw new Error('unknown task id ' + id);
+    } else {
+      return t;
+    }
+  }
+
+  insertTask(name: string, at: number): Task {
+    const t = new Task(this.nextTaskId++, name);
+    this._registerTask(t);
+    this.topo.splice(at, 0, t);
+    return t;
+  }
+
+  appendTask(name: string): Task {
+    const t = new Task(this.nextTaskId++, name);
+    return this._appendTask(t);
+  }
+
+  _registerTask(task: Task) {
+    this.allTasks.add(task);
+    this.tasksById.set(task.id, task);
+  }
+
+  _appendTask(task: Task): Task {
+    this._registerTask(task);
+    this.topo.push(task);
+    return task;
+  }
+
   addEdge(from: Task, to: Task) {
-    if (!this.V.has(to)) {
+    if (!this.allTasks.has(to)) {
       console.log(
         'Trying to add an edge to',
         to.id,
@@ -119,7 +131,7 @@ export class Graph {
       );
       debugger;
     }
-    if (!this.V.has(from)) {
+    if (!this.allTasks.has(from)) {
       console.log(
         'Trying to add an edge from',
         from.id,
@@ -175,14 +187,16 @@ export class Graph {
     if (!b) this.topo.splice(0, 0, t);
     let idx = this.topo.indexOf(b);
     this.topo.splice(idx, 0, t);
-    this.V.add(t);
+    this.allTasks.add(t);
+    this.tasksById.set(t.id, t);
   }
 
   insertAfter(t: Task, a: Task) {
     if (!a) this.topo.splice(0, 0, t);
     let idx = this.topo.indexOf(a) + 1;
     this.topo.splice(idx, 0, t);
-    this.V.add(t);
+    this.allTasks.add(t);
+    this.tasksById.set(t.id, t);
   }
 
   next(t: Task) {
@@ -213,43 +227,20 @@ export class Graph {
     return this.E_inv.get(v) || [];
   }
 
-  subGraph(vs: Set<Task>) {
-    const E_new = new Map<Task, Task[]>();
-    const E_inv_new = new Map<Task, Task[]>();
-    // Only edges from an element of V to an element of V.
-    vs.forEach((v) => {
-      E_new.set(
-        v,
-        this.edges(v).filter((u) => vs.has(u)),
-      );
-      E_inv_new.set(
-        v,
-        this.invEdges(v).filter((u) => vs.has(u)),
-      );
-    });
-    const topo = this.topo.filter((v) => vs.has(v));
-    return new Graph(vs, E_new, E_inv_new, topo);
-  }
-
   copy() {
-    const V = new Set(this.V);
-    const E_new = new Map<Task, Task[]>();
-    this.E.forEach((vs, k) => E_new.set(k, [...vs]));
-    const E_inv_new = new Map<Task, Task[]>();
-    this.E_inv.forEach((vs, k) => E_inv_new.set(k, [...vs]));
-    return new Graph(V, E_new, E_inv_new, [...this.topo]);
-  }
-
-  removeSubComponent(vs: Set<Task>) {
-    const g = this.subGraph(vs);
-    vs.forEach((v) => this.removeNode(v, false));
-    this.topo = this.topo.filter((v) => this.V.has(v));
+    const g = new Graph();
+    this.tasksById.forEach((v, k) => g.tasksById.set(k, v));
+    this.allTasks.forEach(v => g.allTasks.add(v));
+    this.E.forEach((vs, k) => g.E.set(k, [...vs]));
+    this.E_inv.forEach((vs, k) => g.E_inv.set(k, [...vs]));
+    g.nextTaskId = this.nextTaskId;
     return g;
   }
 
   removeNode(v: Task, healEdges: boolean) {
     this.topo.splice(this.topo.indexOf(v), 1);
-    this.V.delete(v);
+    this.tasksById.delete(v.id);
+    this.allTasks.delete(v);
     const requiredBy = this.invEdges(v);
     const dependsOn = this.edges(v);
     this.E.delete(v);
@@ -272,9 +263,13 @@ export class Graph {
       const i = outgoing.indexOf(v);
       if (i < 0) return;
       outgoing.splice(i, 1);
+      if (outgoing.length == 0) {
+        this.E_inv.delete(d);
+      }
     });
     this.allEdges = this.allEdges.filter(([from, to]) => from != v && to != v);
   }
+
   layoutX() {
     /* We need to assign each task to a column, then arrange the columns
        so they don't overlap. It helps to think about the task graph as though
@@ -416,23 +411,24 @@ export class Graph {
 
   calculateDates(calendar: Calendar) {
     const durations = new Map<Task, NPValue>();
+    const engTime = new Map<Task, NPValue>();
     console.log('calculate dates');
     const today = calendar.today();
     const defaultStart: NPValue = np.rand_norm90(today, 10);
     // TODO: this probably belongs on the Estimate, which would have the
     // side-effect of keeping it stable and decreasing the cost of
     // calculateDates by 1/3.
-    const doEst = (t: Task): NPValue => {
-      if (t.estimate !== undefined) {
-        if (!t.estimate.dist) {
-          return (t.estimate.dist = np.rand_norm90(
-            t.estimate.lb_days,
-            t.estimate.ub_days,
-          ));
-        }
-        return t.estimate.dist;
+    const doCalEst = (t: Task): NPValue => {
+      if (t.calEstimate !== undefined) {
+        return t.calEstimate.dist;
       }
-      return {type: 'error', message: `No estimate for ${t.id}`};
+      return {type: 'error', message: `No calendar estimate for ${t.id}`, range: ''};
+    };
+    const doEngEst = (t: Task): NPValue => {
+      if (t.engEstimate !== undefined) {
+        return t.engEstimate.dist;
+      }
+      return {type: 'error', message: `No eng estimate for ${t.id}`, range: ''};
     };
     // TODO: this is just here to make it obvious if we've violated a
     // topological ordering constraint, or an edge to a deleted task has been
@@ -441,7 +437,10 @@ export class Graph {
     this.topo.forEach((t) => (t.endDates = undef));
     this.topo
       .filter((t) => !t.finished)
-      .forEach((t) => durations.set(t, doEst(t)));
+      .forEach((t) => {
+        durations.set(t, doCalEst(t));
+        engTime.set(t, doEngEst(t));
+      });
 
     const toDates = (days: NPValue): NPPercentileOrError<Date> => {
       const checkDate = (wd: number) => {
@@ -459,17 +458,27 @@ export class Graph {
       };
     };
 
+    this.totalEng = np.add(
+      this.topo.filter(t => t.engEstimate !== undefined)
+      .map(t => t.engEstimate!.dist));
+
+    this.completedEng = np.add(
+      this.topo.filter(t => t.engEstimate !== undefined && t.finished !== undefined)
+      .map(t => t.engEstimate!.dist));
+
+    this.percentCompleted = np.mul([np.scalar(100), np.div(this.completedEng, this.totalEng)]);
+
     this.topo.forEach((t) => {
       const parents = this.edges(t);
       const start: NPValue = t.started
-        ? {type: 'scalar', scalar: calendar.workDay(t.started)}
+        ? {type: 'scalar', scalar: calendar.workDay(t.started), range: t.started.toString()}
         : parents.length == 0
           ? defaultStart
           : np.max(parents.map((p) => p.endDates).concat([defaultStart]));
       t.startDates = start;
       t.startDateP = toDates(start);
       const end: NPValue = t.finished
-        ? {type: 'scalar', scalar: calendar.workDay(t.finished)}
+        ? {type: 'scalar', scalar: calendar.workDay(t.finished), range: t.finished.toString()}
         : np.add([start, durations.get(t)!]);
       t.endDates = end;
       t.endDateP = toDates(end);
@@ -501,17 +510,4 @@ export class Graph {
     maxDate.setMonth(maxDate.getMonth() + 1);
     return {minDate, maxDate};
   }
-}
-
-export function mainGraph(G: {V: Map<number, Task>; E: Map<Task, Task[]>}) {
-  const V = new Set<Task>(G.V.values());
-  const E = new Map<Task, Task[]>();
-  G.E.forEach((dependsOn, v) => E.set(v, [...dependsOn]));
-  const E_inv = invertEdges(V, E);
-  const topo = topoSort(V, E);
-  const order = new Map(topo.map((v, i) => [v, i]));
-  const byOrder = (a: Task, b: Task) => order.get(a)! - order.get(b)!;
-  E.forEach((vs) => vs.sort(byOrder));
-  E_inv.forEach((vs) => vs.sort(byOrder));
-  return new Graph(V, E, E_inv, topo);
 }

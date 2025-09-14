@@ -8,14 +8,22 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type {Estimate} from './estimate';
+import {Estimate, SerializedEstimate} from './estimate';
 import {NPArray, NPError, NPPercentileOrError, NPValue, undef} from './np';
 
 export type TaskType = 'task' | 'milestone';
 
-export class Task {
-  static count = 0; // TODO: replace with Firebase IDs
 
+export type SerializedTask = {
+  id: number;
+  name: string; type: TaskType;
+  started?: string;
+  finished?: string;
+  engEstimate?: SerializedEstimate;
+  calEstimate?: SerializedEstimate;
+};
+
+export class Task {
   started?: Date;
   finished?: Date;
   endDates: NPValue = undef;
@@ -25,12 +33,13 @@ export class Task {
   visible_paths: Array<[Task, Task]> = [];
   doty: number = 0;
   dotx: number = 0;
-  type: string;
-  estimate?: Estimate;
+  type: TaskType;
+  calEstimate?: Estimate;
+  engEstimate?: Estimate;
   name: string;
   id: number;
-  constructor(name: string, type: TaskType = 'task') {
-    this.id = Task.count++;
+  constructor(id: number, name: string, type: TaskType = 'task') {
+    this.id = id;
     this.name = name;
 
     // model properties
@@ -45,5 +54,28 @@ export class Task {
     } else {
       this.started = date;
     }
+  }
+
+  serialize(): SerializedTask {
+    return {
+      id: this.id,
+      name: this.name,
+      type: this.type,
+      started: this.started?.toISOString(),
+      finished: this.finished?.toISOString(),
+      engEstimate: this.engEstimate?.serialize(),
+      calEstimate: this.calEstimate?.serialize(),
+    };
+  }
+
+  static deserialize(data: SerializedTask) {
+    const t = new Task(data.id, data.name, data.type as TaskType);
+    t.started = data.started ? new Date(data.started) : undefined;
+    t.finished = data.finished ? new Date(data.finished) : undefined;
+    t.engEstimate =
+        data.engEstimate ? Estimate.deserialize(data.engEstimate) : undefined;
+    t.calEstimate =
+        data.calEstimate ? Estimate.deserialize(data.calEstimate) : undefined;
+    return t;
   }
 }

@@ -13,40 +13,36 @@
 
 import {Holiday} from './dates';
 import {Estimate} from './estimate';
-import {mainGraph} from './graph';
+import {Graph} from './graph';
 import {byValue} from './np';
 import {Task} from './task';
 
-function randomTasks(n: number) {
-  const rand = (lb: number, ub: number) =>
-    Math.floor(Math.random() * (ub - lb) + lb);
+function getRandomTaskName() {
+  const name = [
+    randFrom([
+      'Add',
+      'Set up',
+      'Request',
+      'Wait for',
+      'Implement',
+      'Test',
+      'Get approval for',
+      'Send',
+      'Implement',
+      'Review',
+      'Design',
+      'Approve',
+      'Qualify',
+    ]),
+  ].concat(lorems(0.5));
+  return name.join(' ');
+}
 
-  const tasks = [];
-  for (let i = 0; i < n; i++) {
-    const name = [
-      randFrom([
-        'Add',
-        'Set up',
-        'Request',
-        'Wait for',
-        'Implement',
-        'Test',
-        'Get approval for',
-        'Send',
-        'Implement',
-        'Review',
-        'Design',
-        'Approve',
-        'Qualify',
-      ]),
-    ].concat(lorems(0.5));
-    const estimate = [rand(0, 12), rand(0, 12)];
-    estimate.sort(byValue); // stupid javascript
-    const task = new Task(name.join(' '));
-    task.estimate = new Estimate(estimate[0], 'd', estimate[1], 'd');
-    tasks.push(task);
-  }
-  return tasks;
+function randEst() {
+  const estimate = [rand(0, 12), rand(0, 12)];
+  estimate.sort(byValue); // argh javascript
+  const [lb, ub] = estimate;
+  return new Estimate(lb, 'd', ub, 'd');
 }
 
 function rand(lb: number, ub: number) {
@@ -79,31 +75,36 @@ function lorems(prob: number) {
    4. with some small probability, keep the parent(s) as growable tips
 */
 
-function randomGraph(tasks: Task[]): {
-  V: Map<number, Task>;
-  E: Map<Task, Task[]>;
-} {
+// TODO: this should just create an empty graph and modify it, rather than
+// doing all this work...
+export function makeRandomGraph(n: number): Graph {
   let now = new Date();
-  now.setDate(now.getDate() - tasks.length);
-  const E = tasks.length;
-  const edges = new Map<Task, Task[]>();
+  now.setDate(now.getDate() - n);
+
+  const g = Graph.create();
   const tips: Task[] = [];
-  tasks.forEach((t) => edges.set(t, []));
-  tasks.forEach((t, i) => {
+  for (let i = 0; i < n; i++) {
     now.setDate(now.getDate() + 1);
+
+    const task = g.appendTask(getRandomTaskName());
+    task.calEstimate = randEst();
+    task.engEstimate = randEst();
+
     if (tips.length == 0 || Math.random() < 0.1) {
-      tips.push(t);
+      tips.push(task);
       if (Math.random() < 0.75) {
-        t.started = new Date(now);
+        task.started = new Date(now);
         if (Math.random() < 0.75) {
-          t.finished = new Date(now);
-          t.finished.setDate(t.finished.getDate() + 1);
+          task.finished = new Date(now);
+          task.finished.setDate(task.finished.getDate() + 1);
         }
       } else if (Math.random() < 0.1) {
-        t.estimate = undefined;
+        task.engEstimate = undefined;
+        task.calEstimate = undefined;
       }
-      return;
+      break;
     }
+
     let parents = [];
     do {
       const pi = rand(0, tips.length);
@@ -112,38 +113,28 @@ function randomGraph(tasks: Task[]): {
       if (Math.random() < 0.9) {
         tips.splice(pi, 1);
       }
-      if (edges.get(t)!.indexOf(parent) >= 0) continue;
-      edges.get(t)!.push(parent);
+      if (g.edges(task)!.indexOf(parent) >= 0) continue;
+      g.addEdge(task, parent);
       parents.push(parent);
     } while (Math.random() < 0.2 && tips.length > 0);
     if (parents.every((p) => p.finished != null) && Math.random() < 0.75) {
-      t.started = new Date(now);
+      task.started = new Date(now);
       if (Math.random() < 0.75) {
-        t.finished = new Date(now);
-        t.finished.setDate(t.finished.getDate() + 1);
+        task.finished = new Date(now);
+        task.finished.setDate(task.finished.getDate() + 1);
       }
     }
     if (Math.random() < 0.05) {
-      t.type = 'milestone';
+      task.type = 'milestone';
     }
     if (Math.random() < 0.95) {
-      tips.push(t);
+      tips.push(task);
     } else {
-      t.type = 'milestone';
+      task.type = 'milestone';
     }
-  });
+  }
   tips.forEach((t) => (t.type = 'milestone'));
-
-  return {
-    V: new Map(tasks.map((t) => [t.id, t])),
-    E: edges,
-  };
-}
-
-export function makeRandomGraph(n: number) {
-  const tasks = randomTasks(n);
-  const G = randomGraph(tasks);
-  return mainGraph(G);
+  return g;
 }
 
 export function makeRandomHolidays(n: number): Holiday[] {
