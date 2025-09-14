@@ -9,31 +9,25 @@
  */
 
 import * as d3 from 'd3';
-import {LitElement, css, html, nothing} from 'lit';
+import {css, html, LitElement, nothing} from 'lit';
 import {customElement, property, state} from 'lit/decorators.js';
-import {DateObserver} from './date-observer';
+
 import type {Calendar} from './dates';
 import {Graph} from './graph';
 import * as np from './np';
 import {Task} from './task';
+import {SignalWatcher} from './watcher';
 
 @customElement('details-panel')
-export class DetailsPanel extends LitElement {
+export class DetailsPanel extends SignalWatcher(LitElement) {
   @property() activeTask?: Task;
   @property() visible: boolean = false;
-  @property() graph?: Graph;
   @property() calendar?: Calendar;
-
-  get g() {
-    return this.graph!;
-  }
-
-  dateObserver = new DateObserver(this);
 
   override render() {
     if (!this.visible) return nothing;
     if (!this.activeTask) return html`No task selected`;
-    const d = this.activeTask.endDates;
+    const d = this.activeTask.endDates();
     if (d.type == 'error') {
       return html`<div id="completion-date-error">${d.message}</div>`;
     }

@@ -70,7 +70,7 @@ export class ToolButton extends LitElement {
       <div class="${classMap(classes)}"
            title=${this.get_tooltip()}
            @click=${this.onClick}>
-        <img src=../node_modules/@vscode/codicons/src/icons/${this.codicon}.svg>
+        <img src=https://static.corp.google.com/tasksight-team/codicons/${this.codicon}.svg>
       </div>
     `;
   }

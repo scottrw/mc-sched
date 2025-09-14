@@ -19,13 +19,14 @@
  *   model.
  */
 
-import {LitElement, css, html, nothing} from 'lit';
+import {css, html, LitElement, nothing} from 'lit';
 import {customElement, property, state} from 'lit/decorators.js';
 import {createRef, ref} from 'lit/directives/ref.js';
+
 import {fmtDateAll} from './dates';
 import {Estimate} from './estimate';
 import type {NPPercentileOrError} from './np';
-import {Op, EditOp, EditOpBuilder, EditTitleOp} from './operation';
+import {firePatch} from './op';
 
 const defaultTasks = [
   'Architecture Design',
@@ -70,44 +71,21 @@ export class EditableTitle extends LitElement {
       autocomplete="off"
       style="width: ${this.text.length}ch"
       ${ref(this.inputRef)}
-      @blur=${this.fireTitleUpdated}
       @keydown=${this.keydown}
-      @beforeinput=${this.handleBeforeInput}
       @input=${this.handleInput}
       .value=${this.text} />`;
   }
-  pendingEditOp?: EditOpBuilder;
-  handleBeforeInput() {
-    this.pendingEditOp = new EditOpBuilder(this.input.value);
-  }
-  handleInput() {
-    if (this.pendingEditOp !== undefined) {
-      const editOp = this.pendingEditOp.build(this.input.value);
-      this.pendingEditOp = undefined;
-      this.dispatchEvent(
-        new CustomEvent('operate', {detail: new EditTitleOp(editOp),
-                        bubbles: true, composed: true}));
-    } else {
-      console.trace('handleChanged with no pending op builder');
-    }
-  }
-  fireTitleUpdated() {
-    if (this.input.value != this.text) {
-      this.text = this.input.value;
-      this.dispatchEvent(
-        new CustomEvent('title-updated', {bubbles: true, composed: true}),
-      );
-    }
+  handleInput(e: Event) {
+    const text = (e.target as HTMLInputElement).value;
+    firePatch(this, {name: 'edit', text});
   }
   keydown(e: KeyboardEvent) {
     if (e.key == 'Escape') {
-      this.input.value = this.text;
       this.input.blur();
       return;
     }
     if (e.key == 'Enter') {
       this.input.blur();
-      this.fireTitleUpdated();
     }
   }
 }
@@ -137,11 +115,6 @@ class HideableElement extends LitElement {
       new CustomEvent('hide', {bubbles: true, composed: true}),
     );
   }
-  fireAccept(detail: any) {
-    this.dispatchEvent(
-      new CustomEvent('accept', {detail, bubbles: true, composed: true}),
-    );
-  }
   fireCreateTask(detail: any) {
     this.dispatchEvent(
       new CustomEvent('create-task', {detail, bubbles: true, composed: true}),
@@ -149,11 +122,6 @@ class HideableElement extends LitElement {
   }
   fireTab() {
     this.dispatchEvent(new CustomEvent('tab', {bubbles: true, composed: true}));
-  }
-  fireChange() {
-    this.dispatchEvent(
-      new CustomEvent('change', {bubbles: true, composed: true}),
-    );
   }
   swallowClick(e: Event) {
     e.stopPropagation();
@@ -181,18 +149,17 @@ class HideableElement extends LitElement {
     if (e.key == 'Escape') {
       this.fireHide();
     } else if (e.key == 'Enter') {
-      this.fireAccept({});
+      e.preventDefault();
+      e.stopPropagation();
+      this.fireHide();
       if (e.ctrlKey || e.altKey || e.metaKey) {
         this.fireCreateTask({before: e.shiftKey, branch: e.altKey});
       }
     } else if (e.key == 'Tab') {
       e.preventDefault();
       e.stopPropagation();
-      this.fireAccept({});
       this.fireHide();
       this.fireTab();
-    } else {
-      this.fireChange();
     }
   }
 }
@@ -212,18 +179,16 @@ export class AutocompleteEdit extends HideableElement {
     return html`<input
         ${ref(this.inputRef)}
         type="text"
+        @input=${this.handleInput}
         .value=${this.text || ''}
         list="defaultOptions" />
       <datalist id="defaultOptions">
         ${this.options.map((o) => html`<option value=${o}></option>`)}
       </datalist>`;
   }
-
-  override fireAccept(detail: any) {
-    this.text = this.inputRef.value!.value;
-    super.fireAccept(detail);
-  }
-  override fireChange() {
+  handleInput(e: Event) {
+    const text = this.inputRef.value!.value;
+    firePatch(this, {name: 'edit', text});
   }
 }
 
@@ -234,14 +199,13 @@ export class TextEdit extends HideableElement {
   override render() {
     return html`<input
       ${ref(this.inputRef)}
+        @input=${this.handleInput}
       type="text"
       .value=${this.text || ''} />`;
   }
-  override fireAccept(detail: any) {
-    this.text = this.inputRef.value!.value;
-    super.fireAccept(detail);
-  }
-  override fireChange() {
+  handleInput(e: Event) {
+    const text = this.inputRef.value!.value;
+    firePatch(this, {name: 'edit', text});
   }
 }
 
@@ -262,12 +226,16 @@ export class EstEdit extends HideableElement {
       ${ref(this.inputRef)}
       type="text"
       pattern=${_est_pattern_str}
+      @input=${this.handleInput}
       .value=${this.estimate?.displayString() ?? ''}
       @keydown=${this.keydown} />`;
   }
-  override fireAccept(detail: any) {
-    this.estimate = Estimate.check(this.inputRef.value!.value) || undefined;
-    super.fireAccept(detail);
+  handleInput(e: Event) {
+    const value = this.inputRef.value!.value;
+    firePatch(this, {
+      name: 'est-edit',
+      estimate: Estimate.check(value) || undefined
+    });
   }
 }
 
@@ -278,13 +246,13 @@ export class DateEdit extends HideableElement {
   override render() {
     return html` <input
       ${ref(this.inputRef)}
+      @input=${this.handleInput}
       type="date"
       .valueAsDate=${this.date ?? new Date()} />`;
   }
-  override fireAccept(detail: any) {
-    // TODO: consider rejecting if valueAsDate is null
-    this.date = this.inputRef.value!.valueAsDate!;
-    super.fireAccept(detail);
+  handleInput(e: Event) {
+    const date = this.inputRef.value!.valueAsDate!;
+    firePatch(this, { name: 'edit', date });
   }
 }
 
@@ -305,7 +273,6 @@ export abstract class Editable extends LitElement {
   override render() {
     return html` <div
       class=${this.editing ? 'editing' : nothing}
-      @accept=${this.acceptEdit}
       @hide=${this._stopEditing}
       title=${this.getContent()}
       @dblclick=${this._startEditing}>
@@ -325,13 +292,6 @@ export abstract class Editable extends LitElement {
   _stopEditing() {
     this.editing = false;
   }
-  acceptEdit(e: Event, detail: any) {
-    e.stopPropagation();
-    this.dispatchEvent(
-      new CustomEvent('changed', {detail, bubbles: true, composed: true}),
-    );
-    this.editing = false;
-  }
 }
 
 @customElement('editable-text')
@@ -347,10 +307,6 @@ export class EditableText extends Editable {
       ${ref(this.textEditRef)}
       .text=${this.text}></autocomplete-edit>`;
   }
-  override acceptEdit(e: CustomEvent) {
-    this.text = this.textEditRef.value!.text;
-    super.acceptEdit(e, {text: this.text});
-  }
 }
 
 @customElement('editable-est')
@@ -365,10 +321,6 @@ export class EditableEst extends Editable {
     return html`<est-edit
       ${ref(this.estEditRef)}
       .estimate=${this.estimate}></est-edit>`;
-  }
-  override acceptEdit(e: CustomEvent) {
-    this.estimate = this.estEditRef.value!.estimate;
-    super.acceptEdit(e, {estimate: this.estimate});
   }
 }
 
@@ -387,9 +339,5 @@ export class EditableDate extends Editable {
     return html`<date-edit
       ${ref(this.dateEditRef)}
       .date=${this.dateActual}></date-edit>`;
-  }
-  override acceptEdit(e: CustomEvent) {
-    this.dateActual = this.dateEditRef.value!.date;
-    super.acceptEdit(e, {dateActual: this.dateActual});
   }
 }

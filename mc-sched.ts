@@ -17,11 +17,11 @@ import {css, html, LitElement, nothing} from 'lit';
 import {customElement, property, query, state} from 'lit/decorators.js';
 import {classMap} from 'lit/directives/class-map.js';
 
-import {DateObserver} from './date-observer';
 import type {DagView} from './dag-view';
 import {Calendar, Holiday} from './dates';
 import type {EditableTitle} from './editors';
-import {GraphData, Graph} from './graph';
+import {Graph, GraphData} from './graph';
+import {fireOps, OpEventDetail, PatchEventDetail} from './op';
 import {makeRandomGraph, makeRandomHolidays} from './random-graph';
 import {Task} from './task';
 import type {SerializedTask} from './task';
@@ -38,8 +38,6 @@ export class MCSched extends LitElement {
   @property() activeTask?: Task;
   @property() projectTitle: string = 'Untitled';
   @property() initialContent?: Content;
-
-  dateObserver = new DateObserver(this);
 
   static override styles = css`
     :host {
@@ -187,6 +185,14 @@ export class MCSched extends LitElement {
     }
   `;
   boundOnHashChange = this.onHashChange.bind(this);
+  boundHandleOp = this.handleOp.bind(this);
+  handleOp(e: CustomEvent<OpEventDetail>) {
+    const {name, ops} = e.detail;
+    console.log('handleOp', name, ops);
+    ops.forEach((op) => {
+      op();
+    });
+  }
   onHashChange(e: Event) {
     const url = new URL(
       document.location.hash.slice(1),
@@ -207,12 +213,14 @@ export class MCSched extends LitElement {
     }
     window.addEventListener('hashchange', this.boundOnHashChange);
     window.addEventListener('click', this.boundWindowClick);
+    window.addEventListener('op', this.boundHandleOp);
     this.onHashChange(new Event('hashchange'));
   }
   override disconnectedCallback() {
     super.disconnectedCallback();
     window.removeEventListener('hashchange', this.boundOnHashChange);
     window.removeEventListener('click', this.boundWindowClick);
+    window.removeEventListener('op', this.boundHandleOp);
   }
   g!: Graph;
   holidays: Holiday[] = makeRandomHolidays(10);
@@ -261,7 +269,7 @@ export class MCSched extends LitElement {
     }
   }
   menus() {
-  return html`<ul id="menus" @click=${this.menuClick}>
+    return html`<ul id="menus" @click=${this.menuClick}>
             <li>File<ul
               ><li @click=${this.copy}>Make Copy<span></span></li
               ><li
@@ -283,13 +291,13 @@ export class MCSched extends LitElement {
                   >Delete tasks<span>&#x232b;</span> </li
                 ><li
                   class=${classMap({
-      disabled: !(this.activeTask?.type == 'task'),
+      disabled: !(this.activeTask?.type() == 'task'),
     })}
                   @click=${this.setTypeMilestone}
                   >Set as milestone<span>m</span> </li
                 ><li
                   class=${classMap({
-      disabled: !(this.activeTask?.type == 'milestone'),
+      disabled: !(this.activeTask?.type() == 'milestone'),
     })}
                   @click=${this.setTypeTask}
                   >Set as task<span>t</span>
@@ -349,7 +357,7 @@ export class MCSched extends LitElement {
     return html`<div id="chrome"
         ><img src="https://static.corp.google.com/tasksight-team/logo.svg" width="40" height="40"
         ><div id="chrome-middle"
-          ><editable-title .text=${this.projectTitle} @title-updated=${
+          ><editable-title .text=${this.projectTitle} @patch=${
         this.handleTitleUpdated}></editable-title
           ><div id=menubar
             >${this.menus()}<slot name="doc-status" id=doc-status
@@ -413,12 +421,10 @@ export class MCSched extends LitElement {
   setTypeTask(e: MouseEvent) {
     if (!this.activeTask) return;
     this.dagView!.taskGrid.setTypeTask();
-    this.requestUpdate();
   }
   setTypeMilestone(e: MouseEvent) {
     if (!this.activeTask) return;
     this.dagView!.taskGrid.setTypeMilestone();
-    this.requestUpdate();
   }
   addUpstream(e: MouseEvent) {
     if (!this.activeTask) return;
@@ -434,8 +440,9 @@ export class MCSched extends LitElement {
     this.selectedTasks = this.dagView!.selectedTasks;
     this.activeTask = e.detail.activeTask;
   }
-  handleTitleUpdated(e: CustomEvent<string>) {
-    this.projectTitle = (e.target as EditableTitle).text;
+  handleTitleUpdated(e: CustomEvent<PatchEventDetail>) {
+    // this is going to be replaced by an Op
+    this.projectTitle = e.detail.text!;
   }
   toggleFinished(e: MouseEvent) {
     this.viewOptions = {
@@ -475,7 +482,6 @@ export class MCSched extends LitElement {
   loadFromJson(data: GraphData) {
     this.g = Graph.deserialize(data);
     window.setTimeout(() => this.g.calculateDates(this.calendar));
-    this.requestUpdate();
   }
   copy() {
     this.dispatchEvent(

@@ -1,6 +1,6 @@
 import 'jasmine';
 
-/** Operational transform implementation for mc-sched.
+/** Operational transform implementation for tasksight.
  *
  * The operational transform protocol and semantics allow for simultaneous,
  * conflict-free edits, with low latency, between multiple clients.
@@ -43,7 +43,7 @@ import RenameNodeOp from 'goog:com.google.mcsched.ot.RenameNodeOp';
 import Versionable from 'goog:com.google.mcsched.ot.Versionable';
 import Object from 'goog:java.lang.Object';
 
-import {options} from './watcher';
+import {options} from 'google3/third_party/javascript/mc_sched/watcher';
 
 import {
   arrayToList,
@@ -2136,7 +2136,7 @@ ${moLog}
 //       createChange _without_ applying to the document, but still adding it
 //       to pending. And probably triggering the save immediately, since we
 //       already added debounce delay.
-// - integrate title edit
+// - integrate title edit into tasksight
 //   - should be fairly straightforward
 // - integrate OT into node editor. Not sure how we'll do this.
 // - we basically have to turn Graph into a subclass of Document?

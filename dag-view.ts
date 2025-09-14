@@ -135,7 +135,9 @@ export class DagView extends LitElement {
     return html`
       <div
         id="container"
-        class=${classMap({'details-open': this.detailsVisible})}
+        class=${classMap({
+      'details-open': this.detailsVisible
+    })}
         @calculate-dates=${this.calculateDates}>
         <div id="toolbar-wrapper"> ${this.renderTools()} </div>
         <task-grid
@@ -150,10 +152,11 @@ export class DagView extends LitElement {
         </div>
         <details-panel
           id="details"
-          .graph=${this.g}
           .calendar=${this.calendar}
           visible=${this.detailsVisible}
-          class=${classMap({'details-open': this.detailsVisible})}>
+          class=${classMap({
+      'details-open': this.detailsVisible
+    })}>
         </details-panel>
       </div>
     `;

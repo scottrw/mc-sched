@@ -87,20 +87,21 @@ export function makeRandomGraph(n: number): Graph {
     now.setDate(now.getDate() + 1);
 
     const task = g.appendTask(getRandomTaskName());
-    task.calEstimate = randEst();
-    task.engEstimate = randEst();
+    task.calEstimate.set(randEst());
+    task.engEstimate.set(randEst());
 
     if (tips.length == 0 || Math.random() < 0.1) {
       tips.push(task);
       if (Math.random() < 0.75) {
-        task.started = new Date(now);
+        task.started.set(new Date(now));
         if (Math.random() < 0.75) {
-          task.finished = new Date(now);
-          task.finished.setDate(task.finished.getDate() + 1);
+          const d = new Date(now);
+          d.setDate(d.getDate() + 1);
+          task.finished.set(d);
         }
       } else if (Math.random() < 0.1) {
-        task.engEstimate = undefined;
-        task.calEstimate = undefined;
+        task.engEstimate.set(undefined);
+        task.calEstimate.set(undefined);
       }
       break;
     }
@@ -113,27 +114,28 @@ export function makeRandomGraph(n: number): Graph {
       if (Math.random() < 0.9) {
         tips.splice(pi, 1);
       }
-      if (g.edges(task)!.indexOf(parent) >= 0) continue;
+      if (task.edges()!.has(parent)) continue;
       g.addEdge(task, parent);
       parents.push(parent);
     } while (Math.random() < 0.2 && tips.length > 0);
     if (parents.every((p) => p.finished != null) && Math.random() < 0.75) {
-      task.started = new Date(now);
+      task.started.set(new Date(now));
       if (Math.random() < 0.75) {
-        task.finished = new Date(now);
-        task.finished.setDate(task.finished.getDate() + 1);
+        const d = new Date(now);
+        d.setDate(d.getDate() + 1);
+        task.finished.set(d);
       }
     }
     if (Math.random() < 0.05) {
-      task.type = 'milestone';
+      task.type.set('milestone');
     }
     if (Math.random() < 0.95) {
       tips.push(task);
     } else {
-      task.type = 'milestone';
+      task.type.set('milestone');
     }
   }
-  tips.forEach((t) => (t.type = 'milestone'));
+  tips.forEach((t) => (t.type.set('milestone')));
   return g;
 }
 

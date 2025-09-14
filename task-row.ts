@@ -9,19 +9,22 @@
  */
 
 import '@lit-labs/virtualizer';
+import './editors';
+import './gantt-item';
+
 import * as d3 from 'd3';
-import {LitElement, css, html, nothing, svg} from 'lit';
+import {css, html, LitElement, nothing, svg} from 'lit';
 import {customElement, property, state} from 'lit/decorators.js';
 import {classMap} from 'lit/directives/class-map.js';
-import {DateObserver} from './date-observer';
-import './editors';
+
 import type {Editable, EditableDate, EditableEst} from './editors';
-import './gantt-item';
 import type {Graph} from './graph';
 import {NPPercentile} from './np';
+import {fireOps, OpEventDetail, PatchEventDetail} from './op';
 import {Task} from './task';
 import {assertIsDefined} from './util';
-import {RADIUS, YSKIP, displayDotX} from './view-constants';
+import {displayDotX, RADIUS, YSKIP} from './view-constants';
+import {SignalWatcher} from './watcher';
 
 const STAR = (d3.symbol as any)(d3.symbolStar).size(40)();
 
@@ -32,8 +35,8 @@ const YSKIP3 = css`
   ${YSKIP * 3}px
 `;
 
-@customElement('task-row')
-export class TaskRow extends LitElement {
+@customElement('task-row') export class TaskRow extends SignalWatcher
+(LitElement) {
   static override styles = css`
     div {
       overflow: hidden;
@@ -72,7 +75,7 @@ export class TaskRow extends LitElement {
     .add-icon {
       opacity: 0.25;
       cursor:
-        url(../node_modules/@vscode/codicons/src/icons/edit.svg) 0 16,
+        url(https://static.corp.google.com/tasksight-team/codicons/edit.svg) 0 16,
         cell;
     }
     .add-icon:hover {
@@ -98,13 +101,9 @@ export class TaskRow extends LitElement {
   @property() active: boolean = false;
   @property() selected: boolean = false;
   @property() dateFormat: 'abs' | 'rel' = 'abs';
-  @property() graph?: Graph;
-  get g(): Graph {
-    assertIsDefined(this.graph);
-    return this.graph;
-  }
+  @property() minDate: Date = new Date();
+  @property() maxDate: Date = new Date();
 
-  dateObserver = new DateObserver(this);
   width(kind: string): number {
     if (this.headers) {
       return this.headers[kind]?.width || 0;
@@ -112,63 +111,72 @@ export class TaskRow extends LitElement {
     return 0;
   }
   override render() {
-    /* Does this go here? Maybe on the `task` property change observer? */
-    this.dateObserver.observe(this._task);
+    const startDateP = this._task.startDateP();
+    const endDateP = this._task.endDateP();
     const columns = `${this.headers['circles'].width}px
             ${this.headers['status'].width}px
             ${this.headers['name'].width}px
-            ${this.headers['est'].width}px
+            ${this.headers['cal_est'].width}px
+            ${this.headers['eng_est'].width}px
             ${this.headers['start'].width}px
             ${this.headers['end'].width}px
             ${this.headers['gantt'].width}px`;
-    const dateRange = this.g.getDateRange();
     return html`
       <div
         @click=${this.handleClick}
-        class=${classMap({active: this.active, selected: this.selected})}
+        class=${classMap({
+      active: this.active,
+      selected: this.selected
+    })}
         style="display: grid; grid-template-columns:${columns};">
         ${this.renderSvg()} ${this.renderStatus()}
         <editable-text
           id="name"
-          .text=${this._task.name}
-          @changed=${this.handleNameChanged}
+          .text=${this._task.name()}
+          @patch=${this.handleNameChanged}
           @tab=${() => this.edit('est')}></editable-text>
         <editable-est
           id="est"
-          .estimate=${this._task.estimate}
-          @changed=${this.handleEstChanged}></editable-est>
+          .estimate=${this._task.calEstimate()}
+          @patch=${this.handleCalEstChanged}
+          @tab=${() => this.edit('eng_est')}>
+        </editable-est>
+        <editable-est
+          id="eng_est"
+          .estimate=${this._task.engEstimate()}
+          @patch=${this.handleEngEstChanged}
+          @tab=${() => this.edit('start')}>
+        </editable-est>
         <editable-date
-          .dateActual=${this._task.started}
+          id="start"
+          .dateActual=${this._task.started()}
           .dateFormat=${this.dateFormat}
-          .dateCalculated=${this._task.startDateP}
-          @changed=${this.handleStartChanged}>
+          .dateCalculated=${this._task.startDateP()}
+          @patch=${this.handleStartChanged}
+          @tab=${() => this.edit('end')}>
         </editable-date>
         <editable-date
-          .dateActual=${this._task.finished}
+          id="end"
+          .dateActual=${this._task.finished()}
           .dateFormat=${this.dateFormat}
-          .dateCalculated=${this._task.endDateP}
-          @changed=${this.handleEndChanged}>
+          .dateCalculated=${this._task.endDateP()}
+          @patch=${this.handleEndChanged}>
         </editable-date>
         <gantt-item
-          .minStart=${this._task.startDateP.type === 'percentile'
-            ? this._task.startDateP.lb
-            : new Date()}
-          .start=${this._task.startDateP.type === 'percentile'
-            ? this._task.startDateP.med
-            : new Date()}
-          .end=${this._task.endDateP.type === 'percentile'
-            ? this._task.endDateP.med
-            : new Date()}
-          .maxEnd=${this._task.endDateP.type === 'percentile'
-            ? this._task.endDateP.ub
-            : new Date()}
-          .rangeMin=${dateRange.minDate}
-          .rangeMax=${dateRange.maxDate}
+          .minStart=${
+        startDateP.type === 'percentile' ? startDateP.lb : new Date()}
+          .start=${
+        startDateP.type === 'percentile' ? startDateP.med : new Date()}
+          .end=${endDateP.type === 'percentile' ? endDateP.med : new Date()}
+          .maxEnd=${endDateP.type === 'percentile' ? endDateP.ub : new Date()}
+          .rangeMin=${this.minDate}
+          .rangeMax=${this.maxDate}
           .width=${this.headers['gantt'].width}>
         </gantt-item>
       </div>
     `;
   }
+
   edit(field_name: string) {
     /* NOTE: This is called before the children are rendered. */
     this.updateComplete.then(() => {
@@ -192,33 +200,51 @@ export class TaskRow extends LitElement {
     );
   }
   handleNameChanged(e: CustomEvent) {
-    this._task.name = e.detail.text;
+    e.stopPropagation();
+    fireOps(this, 'edit-name', [() => {
+              this._task.name.set(e.detail.text);
+            }]);
   }
   fireCalculateDates() {
     this.dispatchEvent(
       new CustomEvent('calculate-dates', {bubbles: true, composed: true}),
     );
   }
-  handleEstChanged(e: Event) {
-    this._task.estimate = (e.target as unknown as EditableEst).estimate;
-    this.requestUpdate();
-    this.updateComplete.then(() => {
-      this.fireCalculateDates();
-    });
+  handleCalEstChanged(e: CustomEvent<PatchEventDetail>) {
+    e.stopPropagation();
+    fireOps(this, 'edit-cal-est', [() => {
+              this._task.calEstimate.set(e.detail.estimate);
+              this.updateComplete.then(() => {
+                this.fireCalculateDates();
+              });
+            }]);
   }
-  handleStartChanged(e: Event) {
-    this._task.started = (e.target as unknown as EditableDate).dateActual;
-    this.requestUpdate();
-    this.updateComplete.then(() => {
-      this.fireCalculateDates();
-    });
+  handleEngEstChanged(e: CustomEvent<PatchEventDetail>) {
+    e.stopPropagation();
+    fireOps(this, 'edit-eng-est', [() => {
+              this._task.engEstimate.set(e.detail.estimate);
+              this.updateComplete.then(() => {
+                this.fireCalculateDates();
+              });
+            }]);
   }
-  handleEndChanged(e: Event) {
-    this._task.finished = (e.target as unknown as EditableDate)?.dateActual;
-    this.requestUpdate();
-    this.updateComplete.then(() => {
-      this.fireCalculateDates();
-    });
+  handleStartChanged(e: CustomEvent<PatchEventDetail>) {
+    e.stopPropagation();
+    fireOps(this, 'edit-start', [() => {
+              this._task.started.set(e.detail.date);
+              this.updateComplete.then(() => {
+                this.fireCalculateDates();
+              });
+            }]);
+  }
+  handleEndChanged(e: CustomEvent<PatchEventDetail>) {
+    e.stopPropagation();
+    fireOps(this, 'edit-end', [() => {
+              this._task.finished.set(e.detail.date);
+              this.updateComplete.then(() => {
+                this.fireCalculateDates();
+              });
+            }]);
   }
   renderSvg() {
     const w = this.width('circles');
@@ -261,7 +287,7 @@ export class TaskRow extends LitElement {
   }
   renderNodeIcon() {
     const mid = Math.round(this.height / 2);
-    const x = displayDotX(this._task.dotx);
+    const x = displayDotX(this._task.dotx());
     const circles = [];
     if (this.active) {
       circles.push(
@@ -271,7 +297,7 @@ export class TaskRow extends LitElement {
         this.addNodeIcon(x, mid + this.radius * 2, 'Ctrl-Enter', this.addBelow),
       );
     }
-    if (this._task.type == 'task') {
+    if (this._task.type() == 'task') {
       circles.push(
         svg`<circle class=node-icon
                     cx=${x}
@@ -297,8 +323,8 @@ export class TaskRow extends LitElement {
     const mid = Math.round(this.height / 2);
     const p0y = p0 === this._task ? mid : 0;
     const p1y = p1 === this._task ? mid : this.height;
-    const p1x = displayDotX(p1.dotx);
-    const p0x = p0 == this._task ? displayDotX(p0.dotx) : p1x;
+    const p1x = displayDotX(p1.dotx());
+    const p0x = p0 == this._task ? displayDotX(p0.dotx()) : p1x;
 
     if (p0x == p1x) {
       return `M ${p0x} ${p0y} V ${p1y}`;
@@ -324,7 +350,7 @@ export class TaskRow extends LitElement {
       height=${this.height}
       viewBox="0 0 ${YSKIP} ${this.height}"
       @click=${this.handleClickStatus}>
-      <use y=${this.active ? YSKIP : 0} href="icons.svg#${this.statusIcon()}">
+      <use y=${this.active ? YSKIP : 0} href="https://static.corp.google.com/tasksight-team/icons.svg#${this.statusIcon()}">
         <title>${this.statusTitle()}</title>
       </use>
     </svg>`;
@@ -337,26 +363,26 @@ export class TaskRow extends LitElement {
     });
   }
   statusIcon() {
-    if (this._task.finished) {
+    if (this._task.finished()) {
       return 'finished';
-    } // finished
-    if (this._task.started) {
+    }  // finished
+    if (this._task.started()) {
       return 'started';
-    } // in progress
-    if (this.g.edges(this._task).every((p) => p.finished !== null)) {
+    }  // in progress
+    if ([...this._task.edges()].every((p) => p.finished() !== null)) {
       return 'ready'; // startable
     }
     return 'blocked'; // blocked
   }
 
   statusTitle() {
-    if (this._task.finished) {
+    if (this._task.finished()) {
       return 'Finished';
-    } // finished
-    if (this._task.started) {
+    }  // finished
+    if (this._task.started()) {
       return 'Started, click to finish';
-    } // in progress
-    if (this.g.edges(this._task).every((p) => p.finished !== null)) {
+    }  // in progress
+    if ([...this._task.edges()].every((p) => p.finished() !== null)) {
       return 'Unblocked, click to start'; // startable
     }
     return 'Blocked, click to start anyway'; // blocked

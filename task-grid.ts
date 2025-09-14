@@ -9,28 +9,24 @@
  */
 
 import '@lit-labs/virtualizer';
+import './task-row';
+
 import type {LitVirtualizer} from '@lit-labs/virtualizer';
 import {virtualizerRef} from '@lit-labs/virtualizer/virtualize.js';
-import {
-  LitElement,
-  TemplateResult,
-  css,
-  html,
-  noChange,
-  nothing,
-  svg,
-} from 'lit';
-import {Directive, ElementPart, Part, directive} from 'lit/async-directive.js';
+import {css, html, LitElement, noChange, nothing, svg, TemplateResult,} from 'lit';
+import {Directive, directive, ElementPart, Part} from 'lit/async-directive.js';
 import {customElement, property, query} from 'lit/decorators.js';
 import {createRef, ref} from 'lit/directives/ref.js';
+
 import {Graph} from './graph';
 import * as np from './np';
+import {fireOps} from './op';
 import {Task} from './task';
-import './task-row';
 import type {TaskRow} from './task-row';
 import {assertIsDefined} from './util';
-import {FONTSIZE, PAD, YSKIP, displayDotX} from './view-constants';
+import {displayDotX, FONTSIZE, PAD, YSKIP} from './view-constants';
 import {ViewOptions} from './view-options';
+import {SignalWatcher} from './watcher';
 
 /*
    Virtualizer doesn't expose a convenient Promise we can use for determining
@@ -58,8 +54,8 @@ export class TaskMapDirective extends Directive {
   }
 }
 
-@customElement('task-grid')
-export class TaskGrid extends LitElement {
+@customElement('task-grid') export class TaskGrid extends SignalWatcher
+(LitElement) {
   @property() graph?: Graph;
   get g(): Graph {
     assertIsDefined(this.graph);
@@ -71,7 +67,7 @@ export class TaskGrid extends LitElement {
     if (this.activeTask) {
       return this.activeTask;
     }
-    return this.g.topo[0];
+    return this.g.topo()[0];
   }
 
   @property() viewOptions?: ViewOptions;
@@ -210,16 +206,16 @@ export class TaskGrid extends LitElement {
     _hdr('gantt', '', 1000);
     const shouldShow = (t: Task) => {
       let result = true;
-      if (this.searchFilter && t.name.indexOf(this.searchFilter) < 0) {
+      if (this.searchFilter && t.name().indexOf(this.searchFilter) < 0) {
         result = false;
       }
-      if (!this.showFinished && t.finished) {
+      if (!this.showFinished && t.finished()) {
         result = false;
       }
       if (!this.showBlocked && this.g.blocked(t)) {
         result = false;
       }
-      if (this.showOnlyMilestones && t.type != 'milestone') {
+      if (this.showOnlyMilestones && t.type() != 'milestone') {
         result = false;
       }
       return result;
@@ -233,7 +229,8 @@ export class TaskGrid extends LitElement {
       if (shouldShow(t)) {
         return html`<task-row
           .task=${t}
-          .graph=${this.g}
+          .minDate=${this.g.minDate()}
+          .maxDate=${this.g.maxDate()}
           id="task-${t.id}"
           ${this.taskMap(t)}
           .dateFormat=${this.dateFormat}
@@ -253,8 +250,9 @@ export class TaskGrid extends LitElement {
         ${ref(this.headersWrapperRef)}>
         <table id="column-headers" style="width: ${curX + 12 + 'px'}">
           <tr id="column-headers-row">
-            ${allHeaders.map(
-              (h) => html`<td style="width: ${h.width + 'px'}">${h.title}</td>`,
+            ${
+        allHeaders.map(
+            (h) => html`<td style="width: ${h.width + 'px'}">${h.title}</td>`,
             )}
           </tr
         ></table
@@ -268,17 +266,18 @@ export class TaskGrid extends LitElement {
           style="width: ${curX + 'px'}"
           @select=${this.handleSelect}>
           <lit-virtualizer
-            .items=${this.g.topo as Task[]}
-            .renderItem=${renderItem as (
-              t: unknown,
-              idx: number,
+            .items=${this.g.topo() as Task[]}
+            .renderItem=${
+        renderItem as (
+            t: unknown,
+            idx: number,
             ) => TemplateResult}
             }}></lit-virtualizer
         ></div
       ></div>`;
   }
   createFirstTask() {
-    if (this.g.topo.length == 0) {
+    if (this.g.topo().length == 0) {
       return html`<div
         @click=${this.handleCreateFirstTask}
         >Create your first task!</div>`;
@@ -287,7 +286,9 @@ export class TaskGrid extends LitElement {
     }
   }
   handleCreateFirstTask() {
-    this.createTask({before: true, branch: false});
+    fireOps(this, 'create-first-task', [() => {
+              this.createTask({before: true, branch: false});
+            }]);
   }
   handleSelect(e: CustomEvent) {
     const task = (e.target as unknown as TaskRow).task;
@@ -309,70 +310,56 @@ export class TaskGrid extends LitElement {
         e.target as HTMLElement
       )?.scrollLeft;
   }
-  fireChanged(note?: string) {
-    this.dispatchEvent(
-      new CustomEvent('changed', {detail: {note}, bubbles: true, composed: true}),
-    );
-  }
   fireCalculateDates() {
     this.dispatchEvent(
-      new CustomEvent('calculate-dates', {bubbles: true, composed: true}),
+        new CustomEvent('calculate-dates', {bubbles: true, composed: true}),
     );
   }
   toggleType() {
-    this.selectedTasks.forEach((t) => {
-      t.type = t.type == 'task' ? 'milestone' : 'task';
-    });
-    this.fireChanged('toggleType');
-    this.requestUpdate();
+    fireOps(this, 'toggle-type', [() => {
+              this.selectedTasks.forEach((t) => {
+                t.type.update(type => type == 'task' ? 'milestone' : 'task');
+              });
+            }]);
   }
   setTypeTask() {
-    this.selectedTasks.forEach((t) => (t.type = 'task'));
-    this.fireChanged('setTypeTask');
-    this.requestUpdate();
-    this.updateComplete.then(() => {
-      this.fireCalculateDates();
-    });
+    fireOps(this, 'set-type-task', [() => {
+              this.selectedTasks.forEach((t) => (t.type.set('task')));
+              this.updateComplete.then(() => {
+                this.fireCalculateDates();
+              });
+            }]);
   }
   setTypeMilestone() {
-    this.selectedTasks.forEach((t) => (t.type = 'milestone'));
-    this.fireChanged('setTypeMilestone');
-    this.requestUpdate();
-    this.updateComplete.then(() => {
-      this.fireCalculateDates();
-    });
+    fireOps(this, 'set-type-milestone', [() => {
+              this.selectedTasks.forEach((t) => (t.type.set('milestone')));
+              this.updateComplete.then(() => {
+                this.fireCalculateDates();
+              });
+            }]);
   }
   del({healEdges}: {healEdges: boolean}) {
-    const orderedTasks = this._orderedTasks();
-    const firstTask = orderedTasks.shift();
-    if (firstTask) {
-      const idx = this.g.topo.indexOf(firstTask);
-      for (let t of this.selectedTasks) {
-        this._del(t, {healEdges});
-      }
-      if (idx < this.g.topo.length - 1) {
-        this.set(this.g.topo[idx]);
-      }
-      this.fireChanged('del');
-      this.updateComplete.then(() => {
-        this.fireCalculateDates();
-      });
-    }
+    fireOps(this, 'del', [() => {
+              const orderedTasks = this._orderedTasks();
+              const firstTask = orderedTasks.shift();
+              if (firstTask) {
+                const idx = this.g.taskIndex().get(firstTask)!;
+                for (let t of this.selectedTasks) {
+                  this._del(t, {healEdges});
+                }
+                if (idx < this.g.topo().length - 1) {
+                  this.set(this.g.topo()[idx]);
+                }
+                this.updateComplete.then(() => {
+                  this.fireCalculateDates();
+                });
+              }
+            }]);
   }
-  retopo() {
-    const v = this.virtualizer!;
-    const vr = this.virtualizer![virtualizerRef];
-    this.g.topo = [...this.g.topo];
-    console.log('requestUpdate');
-    v.requestUpdate();
-    v.updateComplete.then(() => {});
-    // vr.layoutComplete.then(() => {vr._itemsChanged = true; vr._measureChildren()});
-    // vr._scheduleLayoutComplete();
-  }
-  _del(t: Task, {healEdges}: {healEdges: boolean}) {
+
+  private _del(t: Task, {healEdges}: {healEdges: boolean}) {
     this.g.removeNode(t, healEdges);
     this.selectedTasks.delete(t);
-    this.retopo();
     assertIsDefined(this.g);
     if (this.activeTask == t) {
       this.activeTask = this._orderedTasks().pop();
@@ -393,170 +380,179 @@ export class TaskGrid extends LitElement {
       this.add(t);
       return;
     }
-    const last_idx = this.g.topo.indexOf(this.activeTask);
-    const t_idx = this.g.topo.indexOf(t);
+    const last_idx = this.g.taskIndex().get(this.activeTask)!;
+    const t_idx = this.g.taskIndex().get(t)!;
     const [from, to] = [last_idx, t_idx].sort(np.byValue);
     for (let i = from; i <= to; i++) {
-      this.selectedTasks.add(this.g.topo[i]);
+      this.selectedTasks.add(this.g.topo()[i]);
     }
     this.activeTask = t;
   }
-  has(t: Task) {
+  private has(t: Task) {
     return this.selectedTasks.has(t);
   }
-  isActive(t: Task) {
+  private isActive(t: Task) {
     return this.activeTask == t;
   }
-  clear() {
+  private clear() {
     this.selectedTasks.clear();
     this.activeTask = undefined;
   }
-  next() {
+  private next() {
     this.set(this.g.next(this.activeOrTop));
   }
-  prev() {
+  private prev() {
     this.set(this.g.prev(this.activeOrTop));
   }
-  growDown() {
+  private growDown() {
     this.add(this.g.next(this.activeOrTop));
   }
-  growUp() {
+  private growUp() {
     this.add(this.g.prev(this.activeOrTop));
   }
-  _orderedTasks() {
+  private _orderedTasks() {
     const tasks = Array.from(this.selectedTasks.values());
-    tasks.sort((a, b) => this.g.topo.indexOf(a) - this.g.topo.indexOf(b));
+    tasks.sort(this.g.inTopoOrder);
     return tasks;
   }
-  _reverseOrderedTasks() {
+  private _reverseOrderedTasks() {
     const tasks = Array.from(this.selectedTasks.values());
-    tasks.sort((a, b) => this.g.topo.indexOf(b) - this.g.topo.indexOf(a));
+    tasks.sort(this.g.inTopoOrder);
     return tasks;
   }
   addDeps() {
-    const tasks = this._orderedTasks();
-    const t = tasks.pop();
-    if (t) {
-      tasks.forEach((p) => this.g.addEdge(t, p));
-      this.fireChanged('addDeps');
-      this.requestUpdate();
-      this.updateComplete.then(() => {
-        this.fireCalculateDates();
-      });
-    }
+    fireOps(this, 'add-deps', [() => {
+              const tasks = this._orderedTasks();
+              const t = tasks.pop();
+              if (t) {
+                tasks.forEach((p) => this.g.addEdge(t, p));
+                // this.requestUpdate();
+                this.updateComplete.then(() => {
+                  this.fireCalculateDates();
+                });
+              }
+            }]);
   }
   removeDeps() {
-    const tasks = this._orderedTasks();
-    const t = tasks.pop();
-    if (t) {
-      const dependsOn = this.g.edges(t);
-      tasks
-        .filter((p) => dependsOn.indexOf(p) >= 0)
-        .forEach((p) => this.g.removeEdge(t, p));
-      this.fireChanged('removeDeps');
-      this.requestUpdate();
-      this.updateComplete.then(() => {
-        this.fireCalculateDates();
-      });
-    }
+    fireOps(this, 'remove-deps', [() => {
+              const tasks = this._orderedTasks();
+              const t = tasks.pop();
+              if (t) {
+                const dependsOn = t.edges();
+                tasks.filter((p) => dependsOn.has(p))
+                    .forEach((p) => this.g.removeEdge(t, p));
+                this.updateComplete.then(() => {
+                  this.fireCalculateDates();
+                });
+              }
+            }]);
   }
   shiftUp() {
-    const tasks = Array.from(this.selectedTasks.values());
-    tasks.sort((a, b) => this.g.topo.indexOf(a) - this.g.topo.indexOf(b));
-    for (let t of tasks) {
-      const dependsOn = this.g.edges(t);
-      const latestDep = Math.max(
-        0,
-        ...dependsOn.map((d) => this.g.topo.indexOf(d)),
-      );
-      const idx = this.g.topo.indexOf(t);
-      if (idx - 1 > latestDep) {
-        const old = this.g.topo[idx - 1];
-        this.g.topo.splice(idx - 1, 2, t, old);
-      }
-    }
-    this.retopo();
-    this.fireChanged('shiftUp');
-    this.requestUpdate();
-    this.updateComplete.then(() =>
-      (this.getTaskRow(tasks[0]) as any)?.scrollIntoViewIfNeeded(),
-    );
+    fireOps(
+        this, 'shift-up', [() => {
+          const tasks = Array.from(this.selectedTasks.values());
+          tasks.sort(this.g.inTopoOrder);
+          for (let t of tasks) {
+            const dependsOn = [...t.edges()];
+            const latestDep = Math.max(
+                0,
+                ...dependsOn.map((d) => this.g.taskIndex().get(d)!),
+            );
+            const idx = this.g.taskIndex().get(t)!;
+            if (idx - 1 > latestDep) {
+              this.g.topo.update(topo => {
+                const old = topo[idx - 1];
+                topo.splice(idx - 1, 2, t, old);
+                return [...topo];
+              });
+            }
+          }
+          this.requestUpdate();  // XXX this shouldn't be necessary!
+          this.updateComplete.then(
+              () =>
+                  (this.getTaskRow(tasks[0]) as any)?.scrollIntoViewIfNeeded(),
+          );
+        }]);
   }
   shiftDown() {
-    const tasks = Array.from(this.selectedTasks.values());
-    tasks.sort((a, b) => this.g.topo.indexOf(b) - this.g.topo.indexOf(a));
-    for (let t of tasks) {
-      const requiredBy = this.g.invEdges(t);
-      const firstReq = Math.min(
-        this.g.topo.length,
-        ...requiredBy.map((d) => this.g.topo.indexOf(d)),
-      );
-      const idx = this.g.topo.indexOf(t);
-      if (idx + 1 < firstReq) {
-        const old = this.g.topo[idx + 1];
-        this.g.topo.splice(idx, 2, old, t);
-      }
-      this.retopo();
-    }
-    this.fireChanged('shiftDown');
-    this.requestUpdate();
-    this.updateComplete.then(() =>
-      (this.getTaskRow(tasks[0]) as any)?.scrollIntoViewIfNeeded(),
-    );
+    fireOps(
+        this, 'shift-down', [() => {
+          const tasks = [...this.selectedTasks];
+          tasks.sort(this.g.inTopoOrder);
+          for (let t of tasks) {
+            const requiredBy = [...t.inv_edges()];
+            const firstReq = Math.min(
+                this.g.topo().length,
+                ...requiredBy.map((d) => this.g.taskIndex().get(d)!),
+            );
+            const idx = this.g.topo().indexOf(t);
+            if (idx + 1 < firstReq) {
+              this.g.topo.update(topo => {
+                const old = topo[idx + 1];
+                topo.splice(idx, 2, old, t);
+                return [...topo];
+              });
+            }
+          }
+          this.requestUpdate();  // XXX this shouldn't be necessary!
+          this.updateComplete.then(
+              () =>
+                  (this.getTaskRow(tasks[0]) as any)?.scrollIntoViewIfNeeded(),
+          );
+        }]);
   }
   createTask({before, branch}: {before: boolean; branch: boolean}) {
-    let at = 0;
-    let t: Task;
-    if (!this.activeTask) {
-      t = this.g.insertTask('New task', at);
-    } else {
-      const selectedIdxs: number[] = [];
-      this.selectedTasks.forEach(t =>
-        selectedIdxs.push(this.g.topo.indexOf(t)));
-      const targetIdx = before
-        ? Math.min(...selectedIdxs)
-        : Math.max(...selectedIdxs);
-      const target = this.g.topo[targetIdx];
-      if (before) {
-        t = this.g.insertTask('New task', targetIdx);
-      } else {
-        t = this.g.insertTask('New task', targetIdx + 1);
-      }
-      if (before) {
-        if (!branch) {
-          const edges = [...this.g.edges(target)]; // copy
-          edges.forEach((to) => {
-            this.g.addEdge(t, to);
-            this.g.removeEdge(target, to);
-          });
-        }
-        this.selectedTasks.forEach((c) => this.g.addEdge(c, t));
-      } else {
-        if (!branch) {
-          const invEdges = [...this.g.invEdges(target)];
-          invEdges.forEach((from) => {
-            this.g.addEdge(from, t);
-            this.g.removeEdge(from, target);
-          });
-        }
-        assertIsDefined(this.g);
-        this.selectedTasks.forEach((p) => this.g.addEdge(t, p));
-      }
-    }
-    this.retopo();
-    this.fireChanged('createTask');
-    this.set(t);
-    TaskMapDirective.row(t).then((r) => {
-      this.fireCalculateDates();
-      r.edit('name');
-    });
+    fireOps(this, 'create-task', [() => {
+              let at = 0;
+              let t: Task;
+              if (!this.activeTask) {
+                t = this.g.insertTask('New task', at);
+              } else {
+                const selectedIdxs: number[] = [];
+                this.selectedTasks.forEach(
+                    t => selectedIdxs.push(this.g.topo().indexOf(t)));
+                const targetIdx = before ? Math.min(...selectedIdxs) :
+                                           Math.max(...selectedIdxs);
+                const target = this.g.topo()[targetIdx];
+                if (before) {
+                  t = this.g.insertTask('New task', targetIdx);
+                } else {
+                  t = this.g.insertTask('New task', targetIdx + 1);
+                }
+                if (before) {
+                  if (!branch) {
+                    const edges = [...target.edges()];  // copy
+                    edges.forEach((to) => {
+                      this.g.addEdge(t, to);
+                      this.g.removeEdge(target, to);
+                    });
+                  }
+                  this.selectedTasks.forEach((c) => this.g.addEdge(c, t));
+                } else {
+                  if (!branch) {
+                    target.inv_edges().forEach((from) => {
+                      this.g.addEdge(from, t);
+                      this.g.removeEdge(from, target);
+                    });
+                  }
+                  assertIsDefined(this.g);
+                  this.selectedTasks.forEach((p) => this.g.addEdge(t, p));
+                }
+              }
+              this.set(t);
+              TaskMapDirective.row(t).then((r) => {
+                this.fireCalculateDates();
+                r.edit('name');
+              });
+            }]);
   }
   toggleStatus() {
-    this.activeTask?.toggleStatus(new Date());
-    this.fireChanged('toggleStatus');
-    window.setTimeout(() => {
-      this.fireCalculateDates();
-    });
+    fireOps(this, 'toggle-status', [() => {
+              this.activeTask?.toggleStatus(new Date());
+              window.setTimeout(() => {
+                this.fireCalculateDates();
+              });
+            }]);
   }
   override connectedCallback() {
     super.connectedCallback();
@@ -566,7 +562,7 @@ export class TaskGrid extends LitElement {
     super.disconnectedCallback();
     document.body.removeEventListener('keydown', this.boundKeydown);
   }
-  getTaskRow(t: Task): TaskRow {
+  private getTaskRow(t: Task): TaskRow {
     return this.shadowRoot!.getElementById(`task-${t.id}`)! as TaskRow;
   }
   boundKeydown = this.keydown.bind(this);

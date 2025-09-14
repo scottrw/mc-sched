@@ -8,17 +8,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {DateObserver} from './date-observer';
+import {computed, type Signal, signal, type WritableSignal} from '@angular/core';
+
 import {Calendar, dateFormats} from './dates';
 import * as np from './np';
-import {
-  NPError,
-  NPPercentile,
-  NPPercentileOrError,
-  NPValue,
-  byValue,
-  undef,
-} from './np';
+import {byValue, NPError, NPPercentile, NPPercentileOrError, NPValue, undef,} from './np';
 import {SerializedTask, Task} from './task';
 
 export type EData = {
@@ -33,12 +27,19 @@ export type GraphData = {
 
 export class Graph {
   tasksById = new Map<number, Task>();
-  allTasks = new Set<Task>();
-  E = new Map<Task, Task[]>();
-  E_inv = new Map<Task, Task[]>();
-  topo: Task[] = [];
-  allEdges: [Task, Task][] = [];
+  readonly topo: WritableSignal<Task[]> = signal([]);
+  readonly taskIndex: Signal<Map<Task, number>> = computed(() => {
+    const result = new Map<Task, number>();
+    this.topo().forEach((t, i) => result.set(t, i));
+    return result;
+  });
+  inTopoOrder = (a: Task, b: Task) =>
+      this.taskIndex().get(a)! - this.taskIndex().get(b)!;
   nextTaskId: number = 0;
+
+  hasTask(t: Task) {
+    return this.tasksById.has(t.id) && this.tasksById.get(t.id) === t;
+  }
 
   totalEng: NPValue = undef;
   completedEng: NPValue = undef;
@@ -62,32 +63,22 @@ export class Graph {
   }
 
   serialize(): GraphData {
-    const tasks: SerializedTask[] = this.topo.map(v => v.serialize());
+    const tasks: SerializedTask[] = this.topo().map(v => v.serialize());
     const edges: EData[] = [];
-    for (const [k, vs] of this.E) {
-      edges.push({from: k.id, to: vs.map((v) => v.id)});
+    for (const t of this.topo()) {
+      edges.push({from: t.id, to: [...t.edges()].map((v) => v.id)});
     }
     const data = {tasks, E: edges, nextTaskId: this.nextTaskId} as GraphData;
     return data;
   }
 
   removeEdge(from: Task, to: Task) {
-    const edges = this.edges(from);
-    const i = edges.indexOf(to);
-    if (i >= 0) {
-      edges.splice(i, 1);
+    if (!this.hasTask(from) || !this.hasTask(to)) {
+      throw new Error('removeEdge called on task from another graph!');
     }
-    const invEdges = this.invEdges(to);
-    const j = invEdges.indexOf(from);
-    if (j >= 0) {
-      invEdges.splice(j, 1);
-    }
-    for (let i = 0; i < this.allEdges.length; i++) {
-      if (this.allEdges[i][0] == from && this.allEdges[i][1] == to) {
-        this.allEdges.splice(i, 1);
-        break;
-      }
-    }
+    from.removeEdge(to);
+    to.removeInvEdge(from);
+    this.layoutX();
   }
 
   task(id: number): Task {
@@ -102,7 +93,10 @@ export class Graph {
   insertTask(name: string, at: number): Task {
     const t = new Task(this.nextTaskId++, name);
     this._registerTask(t);
-    this.topo.splice(at, 0, t);
+    this.topo.update(topo => {
+      topo.splice(at, 0, t);
+      return [...topo];
+    });
     return t;
   }
 
@@ -112,18 +106,19 @@ export class Graph {
   }
 
   _registerTask(task: Task) {
-    this.allTasks.add(task);
     this.tasksById.set(task.id, task);
   }
 
   _appendTask(task: Task): Task {
     this._registerTask(task);
-    this.topo.push(task);
+    this.topo.update(topo => {
+      return [...topo, task];
+    });
     return task;
   }
 
   addEdge(from: Task, to: Task) {
-    if (!this.allTasks.has(to)) {
+    if (!this.hasTask(to)) {
       console.log(
         'Trying to add an edge to',
         to.id,
@@ -131,7 +126,7 @@ export class Graph {
       );
       debugger;
     }
-    if (!this.allTasks.has(from)) {
+    if (!this.hasTask(from)) {
       console.log(
         'Trying to add an edge from',
         from.id,
@@ -139,7 +134,7 @@ export class Graph {
       );
       debugger;
     }
-    let [fidx, tidx] = [from, to].map((t) => this.topo.indexOf(t));
+    let [fidx, tidx] = [from, to].map((t) => this.taskIndex().get(t)!);
     if (fidx < tidx) {
       console.log(
         'Trying to add an edge from',
@@ -153,121 +148,112 @@ export class Graph {
       );
       debugger;
     }
-    let edges: Task[] = [];
-    if (this.E.has(from)) {
-      edges = this.E.get(from)!;
-    } else {
-      edges = new Array();
-      this.E.set(from, edges);
-    }
-    let isNew = false;
-    if (edges.indexOf(to) < 0) {
-      edges.push(to);
-      isNew ||= true;
-    }
-
-    let invEdges = [];
-    if (this.E_inv.has(to)) {
-      invEdges = this.E_inv.get(to)!;
-    } else {
-      invEdges = new Array();
-      this.E_inv.set(to, invEdges);
-    }
-    if (invEdges.indexOf(from) < 0) {
-      invEdges.push(from);
-      isNew ||= true;
-    }
-
-    if (isNew) {
-      this.allEdges.push([from, to]);
-    }
+    from.addEdge(to);
+    to.addInvEdge(from);
+    this.layoutX();
   }
 
   insertBefore(t: Task, b: Task) {
-    if (!b) this.topo.splice(0, 0, t);
-    let idx = this.topo.indexOf(b);
-    this.topo.splice(idx, 0, t);
-    this.allTasks.add(t);
+    if (!this.hasTask(t) || !this.hasTask(b)) {
+      throw new Error('insertBefore called on task from another graph!');
+    }
+    if (!b) {
+      this.topo.update(topo => [t, ...topo]);
+    } else {
+      this.topo.update(topo => {
+        topo.splice(this.taskIndex().get(b)!, 0, t);
+        return [...topo];
+      });
+    }
     this.tasksById.set(t.id, t);
   }
 
   insertAfter(t: Task, a: Task) {
-    if (!a) this.topo.splice(0, 0, t);
-    let idx = this.topo.indexOf(a) + 1;
-    this.topo.splice(idx, 0, t);
-    this.allTasks.add(t);
+    if (!this.hasTask(t) || !this.hasTask(a)) {
+      throw new Error('insertAfter called on task from another graph!');
+    }
+    if (!a) this.topo.update(topo => [t, ...topo]);
+    this.topo.update(topo => {
+      topo.splice(this.taskIndex().get(a)! + 1, 0, t);
+      return [...topo];
+    });
     this.tasksById.set(t.id, t);
   }
 
   next(t: Task) {
-    if (!t) {
-      return this.topo[0];
+    if (!this.hasTask(t)) {
+      throw new Error('next called on task from another graph!');
     }
-    let idx = this.topo.indexOf(t);
-    idx = (idx + 1) % this.topo.length;
-    return this.topo[idx];
+    if (!t) {
+      return this.topo()[0];
+    }
+    let idx = this.taskIndex().get(t)!;
+    idx = (idx + 1) % this.topo().length;
+    return this.topo()[idx];
   }
 
   prev(t: Task) {
+    if (!this.hasTask(t)) {
+      throw new Error('prev called on task from another graph!');
+    }
     if (!t) {
-      return this.topo[this.topo.length - 1];
+      return this.topo()[this.topo.length - 1];
     }
-    let idx = this.topo.indexOf(t) - 1;
+    let idx = this.taskIndex().get(t)! - 1;
     if (idx < 0) {
-      idx = this.topo.length - 1;
+      idx = this.topo().length - 1;
     }
-    return this.topo[idx];
+    if (idx < 0) {
+      return t;
+    }
+    return this.topo()[idx];
   }
 
-  edges(v: Task): Task[] {
-    return this.E.get(v) || [];
-  }
-
-  invEdges(v: Task): Task[] {
-    return this.E_inv.get(v) || [];
-  }
-
+  /**
+   * Create a snapshot copy of the Graph.
+   *
+   * The current values of signals are used as snapshots, rather than creating
+   * computed() values from them. This is correct because we don't want updates
+   * from the original graph to leak into the copied graph.
+   */
   copy() {
     const g = new Graph();
-    this.tasksById.forEach((v, k) => g.tasksById.set(k, v));
-    this.allTasks.forEach(v => g.allTasks.add(v));
-    this.E.forEach((vs, k) => g.E.set(k, [...vs]));
-    this.E_inv.forEach((vs, k) => g.E_inv.set(k, [...vs]));
+    this.tasksById.forEach(
+        (v, id) => g.tasksById.set(id, new Task(v.id, v.name(), v.type())));
+    this.tasksById.forEach(original => {
+      const other = g.tasksById.get(original.id)!;
+      other.edges.set(new Set([...original.edges()].map(
+          original => g.tasksById.get(original.id)!)));
+      other.inv_edges.set(new Set([...original.inv_edges()].map(
+          original => g.tasksById.get(original.id)!)));
+    });
     g.nextTaskId = this.nextTaskId;
     return g;
   }
 
   removeNode(v: Task, healEdges: boolean) {
-    this.topo.splice(this.topo.indexOf(v), 1);
+    if (!this.hasTask(v)) {
+      throw new Error('removeNode called on task from another graph!');
+    }
+    this.topo.update(topo => {
+      topo.splice(this.taskIndex().get(v)!, 1);
+      return [...topo];
+    });
     this.tasksById.delete(v.id);
-    this.allTasks.delete(v);
-    const requiredBy = this.invEdges(v);
-    const dependsOn = this.edges(v);
-    this.E.delete(v);
-    this.E_inv.delete(v);
+    const requiredBy = v.inv_edges();
+    const dependsOn = v.edges();
     // Remove incoming edges that depend on this node.
     requiredBy.forEach((r) => {
-      const incoming = this.edges(r);
-      if (!incoming) return;
-      const i = incoming.indexOf(v);
-      if (i < 0) return;
-      incoming.splice(i, 1);
+      r.removeEdge(v);
       if (healEdges) {
         dependsOn.forEach((d) => this.addEdge(r, d));
       }
     });
     // remove v from invEdges of nodes that this one depends on.
     dependsOn.forEach((d) => {
-      const outgoing = this.invEdges(d);
-      if (!outgoing) return;
-      const i = outgoing.indexOf(v);
-      if (i < 0) return;
-      outgoing.splice(i, 1);
-      if (outgoing.length == 0) {
-        this.E_inv.delete(d);
-      }
+      d.removeInvEdge(v);
     });
-    this.allEdges = this.allEdges.filter(([from, to]) => from != v && to != v);
+    this.layoutX();
   }
 
   layoutX() {
@@ -284,6 +270,7 @@ export class Graph {
        that number. As we find nodes that depend on it, we decrease the
        reference count until it reaches zero, then we can remove the tip.
      */
+    let unused = this.topo().map(t => [t.inv_edges(), t.edges()]);
     const unclaimed = this.copy();
     class Column {
       first: Task;
@@ -315,12 +302,12 @@ export class Graph {
       columns.push(col);
       return col;
     };
-    const order = new Map(this.topo.map((v, i) => [v, i]));
+    const order = new Map(this.topo().map((v, i) => [v, i]));
     const byOrder = (a: Task, b: Task) => order.get(a)! < order.get(b)!;
     const columnOf = new Map<Task, Column>();
     const crosses = (p: Task, t: Task, colId: number) => {
       for (let i = order.get(p)! + 1; i < order.get(t)!; i++) {
-        const n = this.topo[i];
+        const n = this.topo()[i];
         const c = columnOf.get(n)!;
         if (c.x == colId) {
           return true;
@@ -352,9 +339,9 @@ export class Graph {
       columns.splice(columns.indexOf(col), 1);
     };
     const getColumn = (t: Task) => {
-      const parents = this.edges(t);
+      const parents = [...t.edges()];
       const firstChildOf = parents.filter(
-        (p) => this.invEdges(p).indexOf(t) == 0,
+          (p) => [...p.inv_edges()].indexOf(t) == 0,
       );
       for (let p of firstChildOf) {
         const col = columnOf.get(p)!;
@@ -365,30 +352,32 @@ export class Graph {
       }
       return newColumn(t, parents);
     };
-    this.topo.forEach((t, i) => {
+    this.topo().forEach((t, i) => {
       const col = getColumn(t);
       col.last = t;
       columnOf.set(t, col);
-      t.dotx = col.x;
-      t.doty = i;
-      this.edges(col.last).forEach((p) => unclaimed.removeEdge(t, p));
+      t.dotx.set(col.x);
+      t.doty.set(i);
+      col.last.edges().forEach(
+          (p) =>
+              unclaimed.removeEdge(unclaimed.task(t.id), unclaimed.task(p.id)));
       for (let c of columns) {
-        if (unclaimed.invEdges(c.last).length == 0) {
+        if (unclaimed.task(c.last.id).inv_edges().size == 0) {
           endColumn(c, t);
         }
       }
     });
 
     // Calculate and store visible paths
-    this.topo.forEach((t) => (t.visible_paths = []));
+    this.topo().forEach((t) => (t.visible_paths = []));
 
-    for (let [from, tos] of this.E) {
-      for (let to of tos) {
-        let fromY = from.doty;
-        let toY = to.doty;
+    for (let from of this.topo()) {
+      for (let to of from.edges()) {
+        let fromY = from.doty();
+        let toY = to.doty();
         // The path from fromY to toY is visible on all tasks between them.
         for (let i = toY; i <= fromY; i++) {
-          this.topo[i].visible_paths.push([to, from]);
+          this.topo()[i].visible_paths.push([to, from]);
         }
       }
     }
@@ -397,13 +386,17 @@ export class Graph {
   }
 
   blocked(t: Task) {
+    if (!this.hasTask(t)) {
+      throw new Error('blocked called on task from another graph!');
+    }
     if (t.finished !== null) {
       return false;
     } // finished
     if (t.started !== null) {
       return false;
     } // in progress
-    if (this.edges(t).every((p) => p.finished !== null)) {
+    // XXX: make this computed()
+    if ([...t.edges()].every((p) => p.finished !== null)) {
       return false; // startable
     }
     return true; // blocked
@@ -419,14 +412,14 @@ export class Graph {
     // side-effect of keeping it stable and decreasing the cost of
     // calculateDates by 1/3.
     const doCalEst = (t: Task): NPValue => {
-      if (t.calEstimate !== undefined) {
-        return t.calEstimate.dist;
+      if (t.calEstimate() !== undefined) {
+        return t.calEstimate()!.dist;
       }
       return {type: 'error', message: `No calendar estimate for ${t.id}`, range: ''};
     };
     const doEngEst = (t: Task): NPValue => {
-      if (t.engEstimate !== undefined) {
-        return t.engEstimate.dist;
+      if (t.engEstimate() !== undefined) {
+        return t.engEstimate()!.dist;
       }
       return {type: 'error', message: `No eng estimate for ${t.id}`, range: ''};
     };
@@ -434,13 +427,11 @@ export class Graph {
     // topological ordering constraint, or an edge to a deleted task has been
     // retained. In normal operation, endDates are always set before they are
     // read.
-    this.topo.forEach((t) => (t.endDates = undef));
-    this.topo
-      .filter((t) => !t.finished)
-      .forEach((t) => {
-        durations.set(t, doCalEst(t));
-        engTime.set(t, doEngEst(t));
-      });
+    this.topo().forEach((t) => (t.endDates.set(undef)));
+    this.topo().filter((t) => !t.finished()).forEach((t) => {
+      durations.set(t, doCalEst(t));
+      engTime.set(t, doEngEst(t));
+    });
 
     const toDates = (days: NPValue): NPPercentileOrError<Date> => {
       const checkDate = (wd: number) => {
@@ -458,56 +449,68 @@ export class Graph {
       };
     };
 
-    this.totalEng = np.add(
-      this.topo.filter(t => t.engEstimate !== undefined)
-      .map(t => t.engEstimate!.dist));
+    this.totalEng = np.add(this.topo()
+                               .filter(t => t.engEstimate() !== undefined)
+                               .map(t => t.engEstimate()!.dist));
 
-    this.completedEng = np.add(
-      this.topo.filter(t => t.engEstimate !== undefined && t.finished !== undefined)
-      .map(t => t.engEstimate!.dist));
+    this.completedEng = np.add(this.topo()
+                                   .filter(
+                                       t => t.engEstimate() !== undefined &&
+                                           t.finished() !== undefined)
+                                   .map(t => t.engEstimate()!.dist));
 
     this.percentCompleted = np.mul([np.scalar(100), np.div(this.completedEng, this.totalEng)]);
 
-    this.topo.forEach((t) => {
-      const parents = this.edges(t);
-      const start: NPValue = t.started
-        ? {type: 'scalar', scalar: calendar.workDay(t.started), range: t.started.toString()}
-        : parents.length == 0
-          ? defaultStart
-          : np.max(parents.map((p) => p.endDates).concat([defaultStart]));
-      t.startDates = start;
-      t.startDateP = toDates(start);
-      const end: NPValue = t.finished
-        ? {type: 'scalar', scalar: calendar.workDay(t.finished), range: t.finished.toString()}
-        : np.add([start, durations.get(t)!]);
-      t.endDates = end;
-      t.endDateP = toDates(end);
+    this.topo().forEach((t) => {
+      const parents: Task[] = [...t.edges()];
+      const start: NPValue = t.started() ?
+          {
+            type: 'scalar',
+            scalar: calendar.workDay(t.started()!),
+            range: t.started.toString()
+          } :
+          parents.length == 0 ?
+          defaultStart :
+          np.max(parents.map((p) => p.endDates()).concat([defaultStart]));
+      t.startDates.set(start);
+      t.startDateP.set(toDates(start));
+      const end: NPValue = t.finished() ? {
+        type: 'scalar',
+        scalar: calendar.workDay(t.finished()!),
+        range: t.finished.toString()
+      } :
+                                          np.add([start, durations.get(t)!]);
+      t.endDates.set(end);
+      t.endDateP.set(toDates(end));
     });
-    DateObserver.notifyAll();
   }
 
-  getDateRange() {
+  minDate = computed(() => {
     const minDate = new Date(
-      Math.min(
-        ...(
-          this.topo
-            .map((t) => t.startDateP)
-            .filter((a) => a.type === 'percentile') as NPPercentile<Date>[]
-        ).map((a) => a.lb.valueOf()),
-      ),
+        Math.min(
+            ...(this.topo()
+                    .map((t) => t.startDateP())
+                    .filter((a) => a.type === 'percentile') as
+                NPPercentile<Date>[])
+                .map((a) => a.lb.valueOf()),
+            ),
     );
     minDate.setDate(1);
+    return minDate;
+  });
+
+  maxDate = computed(() => {
     const maxDate = new Date(
-      Math.max(
-        ...(
-          this.topo
-            .map((t) => t.endDateP)
-            .filter((a) => a.type === 'percentile') as NPPercentile<Date>[]
-        ).map((a) => a.ub.valueOf()),
-      ),
+        Math.max(
+            ...(this.topo()
+                    .map((t) => t.endDateP())
+                    .filter((a) => a.type === 'percentile') as
+                NPPercentile<Date>[])
+                .map((a) => a.ub.valueOf()),
+            ),
     );
     maxDate.setDate(0);
     maxDate.setMonth(maxDate.getMonth() + 1);
-    return {minDate, maxDate};
-  }
+    return maxDate;
+  });
 }

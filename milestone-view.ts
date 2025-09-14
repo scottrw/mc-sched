@@ -9,15 +9,16 @@
  */
 
 import * as d3 from 'd3';
-import {LitElement, css, html, nothing, svg} from 'lit';
+import {css, html, LitElement, nothing, svg} from 'lit';
 import {TemplateResult} from 'lit-html';
 import {customElement, property, state} from 'lit/decorators.js';
-import {DateObserver} from './date-observer';
+
 import type {Graph} from './graph';
 import {NPPercentile, NPPercentileOrError} from './np';
 import {Task} from './task';
 import {assertIsDefined} from './util';
 import {FONTSIZE, PAD} from './view-constants';
+import {SignalWatcher} from './watcher';
 
 type DateMap = (date: Date) => number;
 
@@ -58,7 +59,8 @@ class LaneAssignment {
 }
 
 @customElement('milestone-view')
-export class MilestoneView extends LitElement {
+export class MilestoneView extends SignalWatcher
+(LitElement) {
   height = 1024;
   barH = 30;
   halfBarH = Math.floor(this.barH / 2);
@@ -77,7 +79,7 @@ export class MilestoneView extends LitElement {
       border-radius: 4px;
     }
   `;
-  dateObserver = new DateObserver(this);
+
   getMonths(minDate: Date, maxDate: Date) {
     const months = [];
     for (
@@ -97,7 +99,8 @@ export class MilestoneView extends LitElement {
     // last label start and end are apart. There's a linear inequality, where
     // the x-translated end of the timeline has to be _beyond_ the end of the
     // last label (and ditto the start of the first).
-    const {minDate, maxDate} = this.g.getDateRange();
+    const minDate = this.g.minDate();
+    const maxDate = this.g.maxDate();
     if (isNaN(minDate.valueOf()) || isNaN(maxDate.valueOf())) {
       return nothing;
     }
@@ -112,8 +115,8 @@ export class MilestoneView extends LitElement {
       [minDate, maxDate],
       [this.margin, this.width - 2 * this.margin],
     );
-    const milestones = this.g.topo.filter(
-      (t) => t.type == 'milestone' && t.endDateP.type === 'percentile',
+    const milestones = this.g.topo().filter(
+        (t) => t.type() == 'milestone' && t.endDateP().type === 'percentile',
     );
     // go in reverse order because the timelines look more natural
     const pct = (p: NPPercentileOrError<Date>): NPPercentile<Date> => {
@@ -122,7 +125,8 @@ export class MilestoneView extends LitElement {
     };
     // NB: reverse sort order, because it looks better.
     milestones.sort(
-      (a, b) => pct(b.endDateP).lb.valueOf() - pct(a.endDateP).lb.valueOf(),
+        (a, b) =>
+            pct(b.endDateP()).lb.valueOf() - pct(a.endDateP()).lb.valueOf(),
     );
     const barskip = 4;
     const upper_uncertainty = new LaneAssignment(-this.halfBarH, -barskip);
@@ -153,10 +157,11 @@ export class MilestoneView extends LitElement {
       return {uy, wy, ly};
     }
     milestones.forEach((t) => {
-      if (t.endDateP.type === 'error') return;
+      const endDateP = t.endDateP();
+      if (endDateP.type === 'error') return;
       // Just an estimate
       const lw = 2 * PAD + t.name.length * 0.6 * FONTSIZE;
-      const {lb, med, ub} = t.endDateP;
+      const {lb, med, ub} = endDateP;
       const [xs, xm, xe] = [x(lb), x(med), x(ub)];
       const [lxs, lxe] = [xm - 0.5 * lw, xm + 0.5 * lw];
       const {uy, wy, ly} = getYs(xs, xe, lxs, lxe);
@@ -168,7 +173,7 @@ export class MilestoneView extends LitElement {
                 text-anchor=middle
                   dominant-baseline=central>${t.name}</text>`,
       );
-      if (t.finished) {
+      if (t.finished()) {
         // TODO: maybe a star instead??
         errorbars.push(
           svg`
